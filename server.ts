@@ -15,13 +15,63 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Parse JSON request bodies
-app.use(express.json({
-  limit: '1mb',
-  verify: (req, _res, buffer) => {
-    (req as any).rawBody = Buffer.from(buffer);
-  },
-}));
+// Parse JSON bodies without Express/body-parser. This avoids body-parser's
+// iconv-lite stream dependency, which is incompatible with Cloudflare's
+// Workers Node.js HTTP compatibility layer. Keep the exact bytes for Paystack
+// webhook signature verification.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    (req as any).body = {};
+    return next();
+  }
+
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    (req as any).body = {};
+    (req as any).rawBody = Buffer.alloc(0);
+    return next();
+  }
+
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  let finished = false;
+
+  req.on('data', (chunk: Buffer | string) => {
+    if (finished) return;
+    const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += part.length;
+    if (totalBytes > 1024 * 1024) {
+      finished = true;
+      res.status(413).json({ error: 'REQUEST_TOO_LARGE', message: 'Request body must be 1 MB or smaller.' });
+      return;
+    }
+    chunks.push(part);
+  });
+
+  req.on('error', (error: Error) => {
+    if (finished) return;
+    finished = true;
+    next(error);
+  });
+
+  req.on('end', () => {
+    if (finished) return;
+    finished = true;
+    const rawBody = Buffer.concat(chunks);
+    (req as any).rawBody = rawBody;
+    if (rawBody.length === 0) {
+      (req as any).body = {};
+      return next();
+    }
+    try {
+      (req as any).body = JSON.parse(rawBody.toString('utf8'));
+      return next();
+    } catch {
+      return res.status(400).json({ error: 'INVALID_JSON', message: 'Request body must contain valid JSON.' });
+    }
+  });
+});
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ooalsbdkknznrnldrypd.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_IdubtbN4Y42fq98_CcV1Ew_soG7G7I3';
