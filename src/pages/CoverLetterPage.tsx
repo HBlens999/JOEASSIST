@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { CoverLetterDocument } from '../types/business';
 import { useEntitlements } from '../context/EntitlementsContext';
 import { exportElementToPDF } from '../lib/pdfExport';
@@ -43,7 +44,7 @@ Joseph Chiemezie`);
     setIsGenerating(true);
 
     try {
-      const res = await fetch('/api/gemini/cover-letter', {
+      const res = await authenticatedFetch('/api/gemini/cover-letter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
