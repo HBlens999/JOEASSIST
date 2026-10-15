@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface AuthPageProps {
   setCurrentTab: (tab: string) => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ setCurrentTab }) => {
-  const { signIn, signUp, loginAsDemoUser } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   const [fullName, setFullName] = useState('');
@@ -37,15 +37,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setCurrentTab }) => {
         setIsLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, fullName);
+      const result = await signUp(email, password, fullName);
+      const { error } = result;
       if (error) {
         setErrorMsg(error);
+      } else if (result.needsEmailConfirmation) {
+        setSuccessMsg('Account created. Please check your email and confirm your address before signing in.');
+        setMode('login');
       } else {
-        setSuccessMsg('Account created! Logging you in...');
-        setTimeout(() => setCurrentTab('dashboard'), 1000);
+        setSuccessMsg('Account created successfully. You can now continue to your dashboard.');
+        setCurrentTab('dashboard');
       }
     } else if (mode === 'forgot') {
-      setSuccessMsg('Password reset instructions will be sent to your email if an account exists.');
+      const { error } = await resetPassword(email);
+      if (error) setErrorMsg(error);
+      else setSuccessMsg('If an account exists for this email, a password reset link will be sent. Check your inbox and spam folder.');
     }
 
     setIsLoading(false);
@@ -175,34 +181,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setCurrentTab }) => {
           </button>
         </form>
 
-        {/* Quick Demo Access Bar */}
-        <div className="pt-4 border-t border-gray-100 text-center space-y-2">
-          <span className="text-[11px] text-gray-400 block font-semibold uppercase tracking-wider">
-            Fast Evaluation Testing
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                loginAsDemoUser('user', 'free');
-                setCurrentTab('dashboard');
-              }}
-              className="py-2 px-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-[11px] font-bold rounded-xl border border-gray-200 transition"
-            >
-              Candidate Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                loginAsDemoUser('admin', 'lifetime');
-                setCurrentTab('admin');
-              }}
-              className="py-2 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-bold rounded-xl border border-purple-200 transition"
-            >
-              Founder / Admin Demo
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
