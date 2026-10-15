@@ -5,211 +5,182 @@ import { UserProfile } from '../types/auth';
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, pass: string) => Promise<{ error: any }>;
-  signUp: (email: string, pass: string, fullName: string) => Promise<{ error: any }>;
+  signIn: (email: string, pass: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, pass: string, fullName: string) => Promise<{ error: string | null; needsEmailConfirmation?: boolean }>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>;
+  updateProfile: (updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'avatar_url' | 'company_name'>>) => Promise<{ error: string | null }>;
   isAdmin: boolean;
-  loginAsDemoUser: (role?: 'user' | 'admin', tier?: 'free' | 'premium' | 'lifetime') => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function toUserProfile(authUser: any, profile: any): UserProfile {
+  return {
+    id: authUser.id,
+    email: authUser.email || profile?.email || '',
+    full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
+    phone: profile?.phone || '',
+    avatar_url: profile?.avatar_url || '',
+    // Privileged fields always come from the database profile, never from
+    // user-editable metadata or localStorage.
+    role: profile?.role === 'admin' || profile?.role === 'moderator' ? profile.role : 'user',
+    subscription_tier: profile?.subscription_tier === 'premium' || profile?.subscription_tier === 'lifetime'
+      ? profile.subscription_tier : 'free',
+    subscription_status: ['active', 'past_due', 'canceled', 'expired'].includes(profile?.subscription_status)
+      ? profile.subscription_status : 'active',
+    company_name: profile?.company_name || '',
+    created_at: profile?.created_at,
+    updated_at: profile?.updated_at,
+  };
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    // Check local storage for persistent profile
-    const saved = localStorage.getItem('joeassist_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check initial Supabase Auth session
-    async function initSession() {
+    let mounted = true;
+
+    const loadUser = async (authUser: any) => {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (error) {
+        console.error('Could not load JOEASSIST profile:', error.message);
+        // Keep valid Supabase authentication usable, but with least privilege.
+        setUser(toUserProfile(authUser, null));
+        return;
+      }
+      setUser(toUserProfile(authUser, profile));
+    };
+
+    const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          // Fetch profile from supabase profiles table
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            const userProfile: UserProfile = {
-              id: profile.id,
-              email: profile.email,
-              full_name: profile.full_name || session.user.user_metadata?.full_name,
-              phone: profile.phone,
-              role: profile.role || 'user',
-              subscription_tier: profile.subscription_tier || 'free',
-              subscription_status: profile.subscription_status || 'active',
-              company_name: profile.company_name,
-            };
-            setUser(userProfile);
-            localStorage.setItem('joeassist_user', JSON.stringify(userProfile));
-          } else {
-            // Profile row missing, construct from auth metadata
-            const fallback: UserProfile = {
-              id: session.user.id,
-              email: session.user.email || '',
-              full_name: session.user.user_metadata?.full_name || 'JOEASSIST User',
-              role: session.user.email === 'josepchiemezie42@gmail.com' ? 'admin' : 'user',
-              subscription_tier: 'free',
-              subscription_status: 'active',
-            };
-            setUser(fallback);
-            localStorage.setItem('joeassist_user', JSON.stringify(fallback));
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase auth session check notice:', err);
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (data.session?.user) await loadUser(data.session.user);
+        else if (mounted) setUser(null);
+      } catch (error) {
+        console.error('JOEASSIST session initialization failed:', error);
+        if (mounted) setUser(null);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    }
+    };
 
-    initSession();
+    void init();
 
-    // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const isFounder = session.user.email?.toLowerCase().includes('josepchiemezie');
-        const userObj: UserProfile = {
-          id: session.user.id,
-          email: session.user.email || '',
-          full_name: session.user.user_metadata?.full_name || 'JOEASSIST User',
-          role: isFounder ? 'admin' : 'user',
-          subscription_tier: isFounder ? 'lifetime' : 'free',
-          subscription_status: 'active',
-        };
-        setUser(userObj);
-        localStorage.setItem('joeassist_user', JSON.stringify(userObj));
-      } else if (!localStorage.getItem('joeassist_demo_mode')) {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
         setUser(null);
-        localStorage.removeItem('joeassist_user');
+        setLoading(false);
+        return;
       }
+      // Defer database work outside the auth event callback.
+      setTimeout(() => { void loadUser(session.user); }, 0);
     });
 
     return () => {
-      authListener?.subscription.unsubscribe();
+      mounted = false;
+      listener.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, pass: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: pass,
-      });
-      if (error) throw error;
-      if (data.user) {
-        const isFounder = email.toLowerCase().includes('josepchiemezie');
-        const userProfile: UserProfile = {
-          id: data.user.id,
-          email: data.user.email || email,
-          full_name: data.user.user_metadata?.full_name || 'JOEASSIST Member',
-          role: isFounder ? 'admin' : 'user',
-          subscription_tier: isFounder ? 'lifetime' : 'free',
-          subscription_status: 'active',
-        };
-        setUser(userProfile);
-        localStorage.setItem('joeassist_user', JSON.stringify(userProfile));
-        localStorage.removeItem('joeassist_demo_mode');
-      }
-      return { error: null };
-    } catch (err: any) {
-      return { error: err.message || 'Login failed' };
-    }
-  };
-
-  const signUp = async (email: string, pass: string, fullName: string) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: pass,
-        options: {
-          data: { full_name: fullName },
-        },
-      });
-      if (error) throw error;
-
-      if (data.user) {
-        const isFounder = email.toLowerCase().includes('josepchiemezie');
-        const userProfile: UserProfile = {
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role: isFounder ? 'admin' : 'user',
-          subscription_tier: isFounder ? 'lifetime' : 'free',
-          subscription_status: 'active',
-        };
-        setUser(userProfile);
-        localStorage.setItem('joeassist_user', JSON.stringify(userProfile));
-      }
-      return { error: null };
-    } catch (err: any) {
-      return { error: err.message || 'Registration failed' };
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      // Ignore
-    }
-    setUser(null);
-    localStorage.removeItem('joeassist_user');
-    localStorage.removeItem('joeassist_demo_mode');
-  };
-
-  const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return { error: 'No user logged in' };
-    const updated = { ...user, ...updates };
-    setUser(updated);
-    localStorage.setItem('joeassist_user', JSON.stringify(updated));
-
-    try {
-      await supabase.from('profiles').update(updates).eq('id', user.id);
-    } catch (e) {
-      // Local sync is already preserved
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: pass,
+    });
+    if (error) return { error: error.message };
+    if (data.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (profileError) console.error('Profile lookup after sign-in failed:', profileError.message);
+      setUser(toUserProfile(data.user, profile));
     }
     return { error: null };
   };
 
-  const loginAsDemoUser = (role: 'user' | 'admin' = 'user', tier: 'free' | 'premium' | 'lifetime' = 'free') => {
-    const demo: UserProfile = {
-      id: role === 'admin' ? 'admin-demo-uuid-001' : 'user-demo-uuid-002',
-      email: role === 'admin' ? 'josepchiemezie42@gmail.com' : 'demo.jobseeker@joeassist.com',
-      full_name: role === 'admin' ? 'Joseph Chiemezie (Founder)' : 'Chidinma Okafor',
-      phone: '08039448648',
-      role,
-      subscription_tier: tier,
-      subscription_status: 'active',
-      company_name: 'JOEASSIST Enterprises',
-    };
-    setUser(demo);
-    localStorage.setItem('joeassist_user', JSON.stringify(demo));
-    localStorage.setItem('joeassist_demo_mode', 'true');
+  const signUp = async (email: string, pass: string, fullName: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!fullName.trim()) return { error: 'Please enter your full name.' };
+    if (pass.length < 8) return { error: 'Use a password with at least 8 characters.' };
+
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: pass,
+      options: { data: { full_name: fullName.trim() } },
+    });
+    if (error) return { error: error.message };
+
+    // Supabase may require email confirmation. Do not pretend the user is
+    // signed in when no session was issued.
+    if (!data.session) {
+      return { error: null, needsEmailConfirmation: true };
+    }
+
+    if (data.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (profileError) console.error('Profile lookup after sign-up failed:', profileError.message);
+      setUser(toUserProfile(data.user, profile));
+    }
+    return { error: null, needsEmailConfirmation: false };
   };
 
-  const isAdmin = user?.role === 'admin' || user?.email === 'josepchiemezie42@gmail.com' || user?.email === 'josepchiemezie@gmail.com';
+  const resetPassword = async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return { error: 'Enter your email address first.' };
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo,
+    });
+    return { error: error?.message || null };
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('JOEASSIST sign-out failed:', error.message);
+    setUser(null);
+  };
+
+  const updateProfile: AuthContextType['updateProfile'] = async (updates) => {
+    if (!user) return { error: 'Please sign in first.' };
+    const safeUpdates = {
+      ...(updates.full_name !== undefined ? { full_name: updates.full_name } : {}),
+      ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+      ...(updates.avatar_url !== undefined ? { avatar_url: updates.avatar_url } : {}),
+      ...(updates.company_name !== undefined ? { company_name: updates.company_name } : {}),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(safeUpdates)
+      .eq('id', user.id)
+      .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+      .single();
+
+    if (error) return { error: error.message };
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData.user) setUser(toUserProfile(authData.user, data));
+    return { error: null };
+  };
+
+  const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signIn,
-        signUp,
-        signOut,
-        updateProfile,
-        isAdmin,
-        loginAsDemoUser,
-      }}
-    >
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, resetPassword, signOut, updateProfile, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
