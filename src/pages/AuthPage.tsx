@@ -24,37 +24,36 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setCurrentTab }) => {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (mode === 'login') {
-      const { error } = await signIn(email, password);
-      if (error) {
-        setErrorMsg(error);
-      } else {
-        setCurrentTab('dashboard');
+    try {
+      if (mode === 'login') {
+        const { error } = await signIn(email, password);
+        if (error) setErrorMsg(error);
+        else setCurrentTab('dashboard');
+      } else if (mode === 'register') {
+        if (!fullName.trim()) {
+          setErrorMsg('Please enter your full name.');
+          return;
+        }
+        const result = await signUp(email, password, fullName);
+        if (result.error) {
+          setErrorMsg(result.error);
+        } else if (result.needsEmailConfirmation) {
+          setSuccessMsg('Account created. Please check your email and confirm your address before signing in.');
+          setMode('login');
+        } else {
+          setSuccessMsg('Account created successfully. You can now continue to your dashboard.');
+          setCurrentTab('dashboard');
+        }
+      } else if (mode === 'forgot') {
+        const { error } = await resetPassword(email);
+        if (error) setErrorMsg(error);
+        else setSuccessMsg('If an account exists for this email, a password reset link will be sent. Check your inbox and spam folder.');
       }
-    } else if (mode === 'register') {
-      if (!fullName.trim()) {
-        setErrorMsg('Please enter your full name.');
-        setIsLoading(false);
-        return;
-      }
-      const result = await signUp(email, password, fullName);
-      const { error } = result;
-      if (error) {
-        setErrorMsg(error);
-      } else if (result.needsEmailConfirmation) {
-        setSuccessMsg('Account created. Please check your email and confirm your address before signing in.');
-        setMode('login');
-      } else {
-        setSuccessMsg('Account created successfully. You can now continue to your dashboard.');
-        setCurrentTab('dashboard');
-      }
-    } else if (mode === 'forgot') {
-      const { error } = await resetPassword(email);
-      if (error) setErrorMsg(error);
-      else setSuccessMsg('If an account exists for this email, a password reset link will be sent. Check your inbox and spam folder.');
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Something went wrong. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -162,6 +161,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setCurrentTab }) => {
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
+                required={mode !== 'forgot'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
