@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { CVDocument, WorkExperienceItem, EducationItem, SkillItem, ProjectItem, CertificationItem, LanguageItem } from '../types/cv';
 import { CV_TEMPLATES } from '../templates/templateList';
 import { TemplateRenderer } from '../templates/TemplateRenderer';
@@ -237,7 +238,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
         };
       }
 
-      const res = await fetch(endpoint, {
+      const res = await authenticatedFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
