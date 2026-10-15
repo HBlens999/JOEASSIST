@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useEntitlements } from '../context/EntitlementsContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { Check, ShieldCheck, Zap, Sparkles, HelpCircle, Phone } from 'lucide-react';
 
 interface PricingPageProps {
@@ -9,7 +10,7 @@ interface PricingPageProps {
 
 export const PricingPage: React.FC<PricingPageProps> = ({ setCurrentTab }) => {
   const { plans, currentTier } = useEntitlements();
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -20,11 +21,25 @@ export const PricingPage: React.FC<PricingPageProps> = ({ setCurrentTab }) => {
     setErrorMessage('');
 
     try {
+      if (!user) {
+        setErrorMessage('Please create a free account or sign in before purchasing a plan.');
+        setCurrentTab('auth');
+        setIsProcessing(null);
+        return;
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setErrorMessage('Your session has expired. Please sign in again.');
+        setCurrentTab('auth');
+        setIsProcessing(null);
+        return;
+      }
       const response = await fetch('/api/paystack/initialize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({
-          email: user?.email || 'customer@joeassist.com',
+          email: user.email,
           amount: price,
           planTier: planId,
           callbackUrl: window.location.href,
@@ -35,7 +50,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ setCurrentTab }) => {
 
       if (!response.ok) {
         if (data.error === 'PAYSTACK_NOT_CONFIGURED') {
-          setErrorMessage('Notice: Paystack live keys are currently not configured in server environment. For development evaluation, you can activate Demo Pro below.');
+          setErrorMessage('Paystack is not configured yet. No plan has been activated. Please try again later.');
         } else {
           setErrorMessage(data.error || 'Payment initialization failed.');
         }
@@ -50,15 +65,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({ setCurrentTab }) => {
       setErrorMessage('Could not connect to payment server. Check connection.');
       setIsProcessing(null);
     }
-  };
-
-  const handleDemoActivate = async (planId: 'premium' | 'lifetime') => {
-    await updateProfile({
-      subscription_tier: planId,
-      subscription_status: 'active',
-    });
-    setStatusMessage(`Successfully activated ${planId === 'lifetime' ? 'Lifetime Pro' : 'Monthly Pro'} plan in sandbox mode!`);
-    setTimeout(() => setStatusMessage(''), 4000);
   };
 
   return (
@@ -174,15 +180,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({ setCurrentTab }) => {
                   </button>
                 )}
 
-                {/* Sandbox / Testing Activator */}
-                {plan.id !== 'free' && (
-                  <button
-                    onClick={() => handleDemoActivate(plan.id as any)}
-                    className="w-full text-center text-[10px] text-gray-400 hover:text-blue-600 underline font-medium pt-1"
-                  >
-                    Test Sandbox Instant Upgrade
-                  </button>
-                )}
               </div>
             </div>
           );
