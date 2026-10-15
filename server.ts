@@ -755,8 +755,14 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
+  } else if (process.env.CLOUDFLARE_WORKER === 'true') {
+    // Cloudflare Workers serves the built SPA through its Assets binding.
+    // The Express server handles API routes only in this deployment mode.
+    app.use((req: Request, res: Response) => {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'API route not found.' });
+    });
   } else {
-    // In production: serve built assets from dist
+    // Traditional Node.js production deployment: serve built assets from dist.
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
