@@ -4,6 +4,7 @@ import {
   Search, Download, Award, Zap, Building, ChevronRight, Phone, Mail, Check 
 } from 'lucide-react';
 import { CV_TEMPLATES } from '../templates/templateList';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { TemplateRenderer } from '../templates/TemplateRenderer';
 import { CVDocument } from '../types/cv';
 
@@ -124,7 +125,7 @@ export const HomePage: React.FC<HomePageProps> = ({ setCurrentTab, onSelectTempl
     setIsImprovingBullet(true);
     setTestBulletOutput('');
     try {
-      const res = await fetch('/api/gemini/improve-bullets', {
+      const res = await authenticatedFetch('/api/gemini/improve-bullets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
