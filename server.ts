@@ -749,7 +749,8 @@ app.post('/api/support', async (req: Request, res: Response) => {
 async function startServer() {
   if (!isProduction) {
     // In development: mount Vite in middleware mode
-    const { createServer: createViteServer } = await import('vite');
+    const vitePackageName = 'vite';
+    const { createServer: createViteServer } = await import(vitePackageName);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
