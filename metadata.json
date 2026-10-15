@@ -1,0 +1,6 @@
+{
+  "name": "JOEASSIST",
+  "description": "AI-Powered CV, Career, Business Documents, Payments, and Administration Platform founded by Joseph Chiemezie.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

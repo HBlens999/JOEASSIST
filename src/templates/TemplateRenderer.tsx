@@ -1,0 +1,688 @@
+import React from 'react';
+import { CVDocument } from '../types/cv';
+import { getCustomTemplate } from './custom/registry';
+import { 
+  Mail, Phone, MapPin, Globe, Linkedin, Github, Award, BookOpen, 
+  Briefcase, GraduationCap, CheckCircle2, Star, Sparkles
+} from 'lucide-react';
+
+interface TemplateRendererProps {
+  cv: CVDocument;
+  scale?: number;
+  printMode?: boolean;
+}
+
+export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 1, printMode = false }) => {
+  // Check if this is a registered custom HTML template
+  const customTpl = getCustomTemplate(cv.template_id);
+  if (customTpl) {
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top transition-transform duration-200"
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        {customTpl.render(cv)}
+      </div>
+    );
+  }
+
+  const p = cv.personal_info || {};
+  const primaryColor = cv.styling?.primaryColor || '#1e3a8a';
+  const templateId = cv.template_id || 'modern_minimalist';
+
+  // Helper for contact details row
+  const renderContactBar = (layout: 'inline' | 'stacked' | 'sidebar' = 'inline', darkBg = false) => {
+    const textColor = darkBg ? 'text-gray-200' : 'text-gray-600';
+    const iconColor = darkBg ? 'text-blue-300' : 'text-blue-600';
+
+    return (
+      <div className={`flex flex-wrap gap-x-4 gap-y-1 text-xs ${textColor} ${layout === 'stacked' ? 'flex-col space-y-1' : ''}`}>
+        {p.email && (
+          <span className="inline-flex items-center gap-1">
+            <Mail className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.email}</span>
+          </span>
+        )}
+        {p.phone && (
+          <span className="inline-flex items-center gap-1">
+            <Phone className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.phone}</span>
+          </span>
+        )}
+        {p.location && (
+          <span className="inline-flex items-center gap-1">
+            <MapPin className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.location}</span>
+          </span>
+        )}
+        {p.website && (
+          <span className="inline-flex items-center gap-1">
+            <Globe className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.website}</span>
+          </span>
+        )}
+        {p.linkedin && (
+          <span className="inline-flex items-center gap-1">
+            <Linkedin className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.linkedin}</span>
+          </span>
+        )}
+        {p.github && (
+          <span className="inline-flex items-center gap-1">
+            <Github className={`w-3.5 h-3.5 ${iconColor}`} />
+            <span>{p.github}</span>
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Sections Render Helpers
+  const renderSummary = () => {
+    if (!cv.summary) return null;
+    return (
+      <div className="mb-4">
+        <p className="text-xs leading-relaxed text-gray-700 whitespace-pre-line">{cv.summary}</p>
+      </div>
+    );
+  };
+
+  const renderWorkExperience = (style: 'standard' | 'timeline' | 'compact' | 'borderless' = 'standard') => {
+    if (!cv.work_experience?.length) return null;
+    return (
+      <div className="space-y-3.5">
+        {cv.work_experience.map((exp, idx) => (
+          <div key={exp.id || idx} className={`relative ${style === 'timeline' ? 'pl-4 border-l-2 border-blue-400' : ''}`}>
+            {style === 'timeline' && (
+              <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white" />
+            )}
+            <div className="flex justify-between items-baseline flex-wrap">
+              <span className="font-semibold text-xs text-gray-900">{exp.jobTitle}</span>
+              <span className="text-[11px] font-medium text-gray-500">
+                {exp.startDate} - {exp.isCurrent ? 'Present' : exp.endDate}
+              </span>
+            </div>
+            <div className="text-[11px] font-medium text-blue-800 mb-1">
+              {exp.company} {exp.location ? `• ${exp.location}` : ''}
+            </div>
+            {exp.bulletPoints?.length > 0 && (
+              <ul className="list-disc list-outside ml-3.5 space-y-0.5 text-xs text-gray-700">
+                {exp.bulletPoints.map((pt, i) => (
+                  <li key={i} className="leading-snug">{pt}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderEducation = () => {
+    if (!cv.education?.length) return null;
+    return (
+      <div className="space-y-2.5">
+        {cv.education.map((edu, idx) => (
+          <div key={edu.id || idx}>
+            <div className="flex justify-between items-baseline flex-wrap">
+              <span className="font-semibold text-xs text-gray-900">
+                {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
+              </span>
+              <span className="text-[11px] text-gray-500">{edu.startDate} - {edu.endDate}</span>
+            </div>
+            <div className="text-[11px] text-gray-700">{edu.institution} {edu.location ? `• ${edu.location}` : ''}</div>
+            {edu.gradeGpa && <div className="text-[11px] text-gray-600 font-medium">Grade / GPA: {edu.gradeGpa}</div>}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderSkills = (layout: 'pills' | 'grouped' | 'list' = 'grouped') => {
+    if (!cv.skills?.length) return null;
+    if (layout === 'pills') {
+      const allSkills = cv.skills.flatMap(s => s.items);
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {allSkills.map((sk, i) => (
+            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[11px] font-medium rounded border border-gray-200">
+              {sk}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-1.5 text-xs">
+        {cv.skills.map((s, idx) => (
+          <div key={s.id || idx}>
+            <span className="font-semibold text-gray-800">{s.category}: </span>
+            <span className="text-gray-700">{s.items.join(', ')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderProjects = () => {
+    if (!cv.projects?.length) return null;
+    return (
+      <div className="space-y-2.5">
+        {cv.projects.map((proj, idx) => (
+          <div key={proj.id || idx}>
+            <div className="flex justify-between items-baseline">
+              <span className="font-semibold text-xs text-gray-900">{proj.name}</span>
+              {proj.role && <span className="text-[11px] text-gray-500">{proj.role}</span>}
+            </div>
+            <p className="text-xs text-gray-700 leading-snug">{proj.description}</p>
+            {proj.technologies?.length ? (
+              <div className="text-[11px] text-blue-700 mt-0.5 font-medium">
+                Tech: {proj.technologies.join(', ')}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCertifications = () => {
+    if (!cv.certifications?.length) return null;
+    return (
+      <div className="space-y-1.5 text-xs">
+        {cv.certifications.map((c, idx) => (
+          <div key={c.id || idx} className="flex justify-between">
+            <span className="font-medium text-gray-900">{c.name} — <span className="text-gray-600">{c.issuingOrganization}</span></span>
+            <span className="text-[11px] text-gray-500">{c.issueDate}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderLanguages = () => {
+    if (!cv.languages?.length) return null;
+    return (
+      <div className="flex flex-wrap gap-2 text-xs">
+        {cv.languages.map((l, i) => (
+          <span key={i} className="text-gray-800">
+            <strong>{l.language}</strong> ({l.proficiency})
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  // Distinct Layout Renderers based on template category/style:
+  // 1. Executive / C-Suite (Navy/Slate Banner, High Contrast)
+  if (['executive_brief', 'apex_csuite', 'sales_rainmaker', 'bold_slate_vanguard'].includes(templateId)) {
+    const isGold = templateId === 'apex_csuite';
+    const bannerBg = isGold ? 'bg-slate-900 border-b-4 border-amber-500' : 'bg-slate-900 text-white';
+
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top"
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        <div className={`${bannerBg} px-8 py-7 text-white`}>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white uppercase">{p.fullName || 'Your Name'}</h1>
+              <p className={`text-sm font-semibold tracking-wide mt-0.5 ${isGold ? 'text-amber-400' : 'text-blue-300'}`}>
+                {p.professionalTitle || 'Executive Title'}
+              </p>
+            </div>
+            {isGold && (
+              <div className="w-12 h-12 rounded-full border-2 border-amber-400 flex items-center justify-center font-serif text-lg font-bold text-amber-400">
+                {(p.fullName || 'JA').substring(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-700">
+            {renderContactBar('inline', true)}
+          </div>
+        </div>
+
+        <div className="p-8 space-y-6">
+          {cv.summary && (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+                Executive Profile
+              </h2>
+              {renderSummary()}
+            </div>
+          )}
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-3 border-b-2 border-slate-200">
+              Professional Experience
+            </h2>
+            {renderWorkExperience('standard')}
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+                Education
+              </h2>
+              {renderEducation()}
+            </div>
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+                Core Competencies & Skills
+              </h2>
+              {renderSkills('pills')}
+            </div>
+          </div>
+
+          {cv.certifications?.length ? (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+                Certifications & Board Credentials
+              </h2>
+              {renderCertifications()}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Tech Terminal / Engineering (Monospace & Tech stack accents)
+  if (['tech_terminal', 'data_science_ai', 'engineering_architect'].includes(templateId)) {
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top font-sans"
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        <div className="p-8">
+          <div className="border-b-2 border-slate-900 pb-4 mb-5 flex justify-between items-end">
+            <div>
+              <div className="font-mono text-[11px] text-emerald-600 font-semibold tracking-wider mb-1">// SYSTEM RESUME</div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 font-mono">{p.fullName || 'Your Name'}</h1>
+              <p className="text-sm font-medium text-slate-600 mt-0.5">{p.professionalTitle || 'Software Engineer'}</p>
+            </div>
+            <div className="text-right">
+              {renderContactBar('stacked')}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-12 gap-6">
+            {/* Main Column */}
+            <div className="col-span-8 space-y-5">
+              {cv.summary && (
+                <div>
+                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
+                    # Summary & Architecture
+                  </h2>
+                  {renderSummary()}
+                </div>
+              )}
+
+              <div>
+                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-3">
+                  # Work Experience
+                </h2>
+                {renderWorkExperience('standard')}
+              </div>
+
+              {cv.projects?.length ? (
+                <div>
+                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
+                    # Projects & Systems
+                  </h2>
+                  {renderProjects()}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Tech Sidebar */}
+            <div className="col-span-4 space-y-5 border-l border-slate-200 pl-4">
+              <div>
+                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  [ Tech Stack ]
+                </h2>
+                {renderSkills('pills')}
+              </div>
+
+              <div>
+                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  [ Education ]
+                </h2>
+                {renderEducation()}
+              </div>
+
+              {cv.certifications?.length ? (
+                <div>
+                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                    [ Certifications ]
+                  </h2>
+                  {renderCertifications()}
+                </div>
+              ) : null}
+
+              {cv.languages?.length ? (
+                <div>
+                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                    [ Languages ]
+                  </h2>
+                  {renderLanguages()}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Two-Column Left Sidebar (Creative Studio, International Europass, Healthcare, Compact Hustler)
+  if (['creative_studio', 'international_europass', 'healthcare_clinical', 'compact_onepage', 'student_intern'].includes(templateId)) {
+    const isHealthcare = templateId === 'healthcare_clinical';
+    const sidebarBg = isHealthcare ? 'bg-teal-900 text-teal-50' : 'bg-slate-800 text-slate-100';
+
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top flex min-h-[297mm]"
+        style={{
+          width: '210mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        {/* Left Sidebar */}
+        <div className={`w-[70mm] ${sidebarBg} p-6 flex flex-col justify-between`}>
+          <div className="space-y-6">
+            <div>
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold mb-3">
+                {(p.fullName || 'JA').substring(0, 2).toUpperCase()}
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-white">{p.fullName || 'Your Name'}</h1>
+              <p className="text-xs text-teal-300 font-medium mt-1">{p.professionalTitle}</p>
+            </div>
+
+            <div className="border-t border-white/20 pt-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Contact</h2>
+              {renderContactBar('stacked', true)}
+            </div>
+
+            <div className="border-t border-white/20 pt-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Skills</h2>
+              {renderSkills('pills')}
+            </div>
+
+            {cv.languages?.length ? (
+              <div className="border-t border-white/20 pt-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Languages</h2>
+                {renderLanguages()}
+              </div>
+            ) : null}
+
+            {cv.certifications?.length ? (
+              <div className="border-t border-white/20 pt-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Certifications</h2>
+                {renderCertifications()}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="text-[10px] text-white/40 pt-4">
+            JOEASSIST Verified Format
+          </div>
+        </div>
+
+        {/* Right Content */}
+        <div className="w-[140mm] p-6 space-y-5">
+          {cv.summary && (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+                Professional Profile
+              </h2>
+              {renderSummary()}
+            </div>
+          )}
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-3 border-b border-gray-300">
+              Experience
+            </h2>
+            {renderWorkExperience('standard')}
+          </div>
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+              Education
+            </h2>
+            {renderEducation()}
+          </div>
+
+          {cv.projects?.length ? (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+                Key Projects
+              </h2>
+              {renderProjects()}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Chrono Timeline (Continuous vertical timeline)
+  if (templateId === 'chrono_timeline') {
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top p-8 font-sans"
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        <div className="text-center pb-5 mb-6 border-b border-blue-200">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">{p.fullName || 'Your Name'}</h1>
+          <p className="text-xs font-semibold text-blue-600 mt-1 uppercase tracking-wider">{p.professionalTitle}</p>
+          <div className="mt-3 flex justify-center">
+            {renderContactBar('inline')}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {cv.summary && (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">About & Summary</h2>
+              {renderSummary()}
+            </div>
+          )}
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-3">Career Progression</h2>
+            {renderWorkExperience('timeline')}
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 pt-2">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">Education Timeline</h2>
+              {renderEducation()}
+            </div>
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">Core Skills Matrix</h2>
+              {renderSkills('grouped')}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. Corporate Classic & Academic & Editorial (Serif typography, double rule headers)
+  if (['corporate_classic', 'academic_curriculum', 'editorial_elegance', 'legal_advocate'].includes(templateId)) {
+    return (
+      <div 
+        id="cv-printable-area" 
+        className="bg-white text-gray-900 shadow-2xl mx-auto origin-top p-9 font-serif"
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          transform: printMode ? 'none' : `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+      >
+        <div className="text-center pb-4 mb-5 border-b-2 border-t-2 border-black py-4">
+          <h1 className="text-2xl font-bold tracking-wide uppercase">{p.fullName || 'Your Name'}</h1>
+          <div className="text-xs italic text-gray-700 mt-1">{p.professionalTitle}</div>
+          <div className="mt-2.5 flex justify-center font-sans text-xs">
+            {renderContactBar('inline')}
+          </div>
+        </div>
+
+        <div className="space-y-5 font-serif">
+          {cv.summary && (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+                Professional Overview
+              </h2>
+              {renderSummary()}
+            </div>
+          )}
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-3">
+              Experience & Appointments
+            </h2>
+            {renderWorkExperience('standard')}
+          </div>
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+              Academic Background & Qualifications
+            </h2>
+            {renderEducation()}
+          </div>
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+              Expertise & Competencies
+            </h2>
+            <div className="font-sans">
+              {renderSkills('grouped')}
+            </div>
+          </div>
+
+          {cv.certifications?.length ? (
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+                Admissions, Licenses & Certifications
+              </h2>
+              {renderCertifications()}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // 6. Default Single Column: Modern Minimalist, Scandinavian, Swiss, etc.
+  return (
+    <div 
+      id="cv-printable-area" 
+      className="bg-white text-gray-900 shadow-2xl mx-auto origin-top p-8 font-sans"
+      style={{
+        width: '210mm',
+        minHeight: '297mm',
+        transform: printMode ? 'none' : `scale(${scale})`,
+        transformOrigin: 'top center',
+      }}
+    >
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-4 mb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{p.fullName || 'Your Name'}</h1>
+        <p className="text-xs font-semibold text-blue-700 mt-0.5">{p.professionalTitle || 'Professional Title'}</p>
+        <div className="mt-2.5">
+          {renderContactBar('inline')}
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {cv.summary && (
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+              Summary
+            </h2>
+            {renderSummary()}
+          </div>
+        )}
+
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-3 border-b border-blue-100">
+            Work Experience
+          </h2>
+          {renderWorkExperience('standard')}
+        </div>
+
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            Education
+          </h2>
+          {renderEducation()}
+        </div>
+
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            Skills & Competencies
+          </h2>
+          {renderSkills('grouped')}
+        </div>
+
+        {cv.projects?.length ? (
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+              Selected Projects
+            </h2>
+            {renderProjects()}
+          </div>
+        ) : null}
+
+        {cv.certifications?.length ? (
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+              Certifications & Accreditations
+            </h2>
+            {renderCertifications()}
+          </div>
+        ) : null}
+
+        {cv.languages?.length ? (
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+              Languages
+            </h2>
+            {renderLanguages()}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
