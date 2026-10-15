@@ -57,6 +57,9 @@ CREATE TRIGGER on_auth_user_created_joeassist
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION private.handle_new_user();
 
+-- Drop the last policy dependency before removing the old public helper.
+DROP POLICY IF EXISTS "Users view own support" ON public.support_requests;
+
 -- Remove old public-schema helper endpoints.
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.is_admin();
@@ -105,6 +108,9 @@ CREATE POLICY "Admins manage usage limits" ON public.usage_limits
 DROP POLICY IF EXISTS "Admins manage all settings" ON public.admin_settings;
 CREATE POLICY "Admins manage all settings" ON public.admin_settings
   FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+
+CREATE POLICY "Users view own support" ON public.support_requests
+  FOR SELECT TO authenticated USING (auth.uid() = user_id OR private.is_admin());
 
 DROP POLICY IF EXISTS "Admins manage support" ON public.support_requests;
 CREATE POLICY "Admins manage support" ON public.support_requests
