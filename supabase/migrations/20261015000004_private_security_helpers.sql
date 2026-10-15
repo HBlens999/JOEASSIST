@@ -60,6 +60,22 @@ CREATE TRIGGER on_auth_user_created_joeassist
 -- Drop the last policy dependency before removing the old public helper.
 DROP POLICY IF EXISTS "Users view own support" ON public.support_requests;
 
+-- Remove every policy dependency on the old public function before dropping it.
+DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
+DROP POLICY IF EXISTS "Anyone can view active templates" ON public.cv_templates;
+DROP POLICY IF EXISTS "Admins can manage templates" ON public.cv_templates;
+DROP POLICY IF EXISTS "Admins manage subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins manage payments" ON public.payments;
+DROP POLICY IF EXISTS "Admin webhook view" ON public.payment_webhook_events;
+DROP POLICY IF EXISTS "Admins manage entitlements" ON public.user_entitlements;
+DROP POLICY IF EXISTS "Admins view all AI usage" ON public.ai_usage;
+DROP POLICY IF EXISTS "Admins manage usage limits" ON public.usage_limits;
+DROP POLICY IF EXISTS "Admins manage all settings" ON public.admin_settings;
+DROP POLICY IF EXISTS "Users view own support" ON public.support_requests;
+DROP POLICY IF EXISTS "Admins manage support" ON public.support_requests;
+DROP POLICY IF EXISTS "Admins view audit logs" ON public.audit_logs;
+
 -- Remove old public-schema helper endpoints.
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.is_admin();
