@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { ATSAuditResult } from '../types/business';
 import { useEntitlements } from '../context/EntitlementsContext';
 import { 
@@ -51,7 +52,7 @@ B.Sc. in Computer Science - University of Nigeria`);
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/gemini/ats-audit', {
+      const response = await authenticatedFetch('/api/gemini/ats-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
