@@ -15,11 +15,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Parse JSON bodies without Express/body-parser. This avoids body-parser's
-// iconv-lite stream dependency, which is incompatible with Cloudflare's
-// Workers Node.js HTTP compatibility layer. Keep the exact bytes for Paystack
-// webhook signature verification.
-app.use((req: Request, res: Response, next: NextFunction) => {
+// JSON body parsing for Express running through Cloudflare's Node HTTP adapter.
+// Express receives a Node-compatible IncomingMessage here, not the original
+// Fetch API Request, so req.text()/req.json() are not available on this object.
+// Avoid express.json/body-parser because its iconv-lite dependency currently
+// fails during Worker bundle validation. Preserve raw bytes for Paystack HMAC.
+app.use(async (req: Request, res: Response, next: NextFunction) => {
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
     (req as any).body = {};
@@ -33,44 +34,81 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  let finished = false;
+  try {
+    // Use Fetch body methods if this middleware is ever passed a Fetch Request
+    // directly by a different adapter. Express requests use the stream fallback.
+    const fetchRequest = req as any;
+    let rawBody: Buffer;
 
-  req.on('data', (chunk: Buffer | string) => {
-    if (finished) return;
-    const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    totalBytes += part.length;
-    if (totalBytes > 1024 * 1024) {
-      finished = true;
-      res.status(413).json({ error: 'REQUEST_TOO_LARGE', message: 'Request body must be 1 MB or smaller.' });
-      return;
+    if (typeof fetchRequest.arrayBuffer === 'function') {
+      const bytes = await fetchRequest.arrayBuffer();
+      rawBody = Buffer.from(bytes);
+    } else {
+      const chunks: Buffer[] = [];
+      let totalBytes = 0;
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const onData = (chunk: Buffer | string) => {
+          if (settled) return;
+          const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          totalBytes += part.length;
+          if (totalBytes > 1024 * 1024) {
+            settled = true;
+            cleanup();
+            reject(Object.assign(new Error('Request body exceeds 1 MB.'), { statusCode: 413 }));
+            return;
+          }
+          chunks.push(part);
+        };
+        const onEnd = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve();
+        };
+        const onError = (error: Error) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(error);
+        };
+        const cleanup = () => {
+          req.off('data', onData);
+          req.off('end', onEnd);
+          req.off('error', onError);
+        };
+
+        req.on('data', onData);
+        req.once('end', onEnd);
+        req.once('error', onError);
+      });
+
+      rawBody = Buffer.concat(chunks);
     }
-    chunks.push(part);
-  });
 
-  req.on('error', (error: Error) => {
-    if (finished) return;
-    finished = true;
-    next(error);
-  });
+    if (rawBody.length > 1024 * 1024) {
+      return res.status(413).json({ error: 'REQUEST_TOO_LARGE', message: 'Request body must be 1 MB or smaller.' });
+    }
 
-  req.on('end', () => {
-    if (finished) return;
-    finished = true;
-    const rawBody = Buffer.concat(chunks);
     (req as any).rawBody = rawBody;
     if (rawBody.length === 0) {
       (req as any).body = {};
       return next();
     }
+
     try {
       (req as any).body = JSON.parse(rawBody.toString('utf8'));
       return next();
     } catch {
       return res.status(400).json({ error: 'INVALID_JSON', message: 'Request body must contain valid JSON.' });
     }
-  });
+  } catch (error: any) {
+    if (error?.statusCode === 413) {
+      return res.status(413).json({ error: 'REQUEST_TOO_LARGE', message: 'Request body must be 1 MB or smaller.' });
+    }
+    return next(error);
+  }
 });
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ooalsbdkknznrnldrypd.supabase.co';
