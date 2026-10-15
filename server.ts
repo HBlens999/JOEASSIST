@@ -27,7 +27,18 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
-  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  const getContentType = (request: any): string => {
+    // Fetch Request: Headers is a Headers instance with .get().
+    if (request?.headers && typeof request.headers.get === 'function') {
+      return String(request.headers.get('content-type') || '').toLowerCase();
+    }
+    // Express / Node IncomingMessage: headers is a plain object.
+    if (request?.headers && typeof request.headers === 'object') {
+      return String(request.headers['content-type'] || '').toLowerCase();
+    }
+    return '';
+  };
+  const contentType = getContentType(req);
   if (!contentType.includes('application/json')) {
     (req as any).body = {};
     (req as any).rawBody = Buffer.alloc(0);
