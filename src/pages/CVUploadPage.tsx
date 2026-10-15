@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { Sparkles, Upload, FileText, CheckCircle2, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { CVDocument } from '../types/cv';
 
@@ -60,7 +61,7 @@ export const CVUploadPage: React.FC<CVUploadPageProps> = ({ setCurrentTab, onExt
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/gemini/parse-cv-text', {
+      const res = await authenticatedFetch('/api/gemini/parse-cv-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rawText: pasteText }),
