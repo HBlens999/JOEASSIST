@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useEntitlements } from '../context/EntitlementsContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { X, Check, ShieldCheck, Zap, Sparkles } from 'lucide-react';
 
 export const UpgradeModal: React.FC = () => {
   const { showUpgradeModal, setShowUpgradeModal, upgradeModalReason, plans } = useEntitlements();
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [selectedTier, setSelectedTier] = useState<'premium' | 'lifetime'>('premium');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successNotice, setSuccessNotice] = useState('');
 
   if (!showUpgradeModal) return null;
 
@@ -22,12 +22,24 @@ export const UpgradeModal: React.FC = () => {
     if (!plan) return;
 
     try {
-      // Call server-side Paystack initialization
+      if (!user) {
+        setErrorMessage('Please sign in before purchasing a plan.');
+        setIsProcessing(false);
+        return;
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setErrorMessage('Your session has expired. Please sign in again.');
+        setIsProcessing(false);
+        return;
+      }
+      // The server validates this authenticated account and the configured plan price.
       const response = await fetch('/api/paystack/initialize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({
-          email: user?.email || 'customer@joeassist.com',
+          email: user.email,
           amount: plan.priceNGN,
           planTier: selectedTier,
           callbackUrl: window.location.href,
@@ -39,7 +51,7 @@ export const UpgradeModal: React.FC = () => {
       if (!response.ok) {
         // If Paystack is not yet configured with live keys in server environment, provide a transparent, clear notification
         if (data.error === 'PAYSTACK_NOT_CONFIGURED') {
-          setErrorMessage('Paystack live payment gateway is currently in test mode or pending PAYSTACK_SECRET_KEY in server secrets. For evaluation, you can activate Demo Pro below.');
+          setErrorMessage('Paystack is not configured yet. No plan has been activated. Please try again later.');
         } else {
           setErrorMessage(data.error || 'Payment initialization failed.');
         }
@@ -55,19 +67,6 @@ export const UpgradeModal: React.FC = () => {
       setErrorMessage('Could not connect to payment server. Check network connection.');
       setIsProcessing(false);
     }
-  };
-
-  const handleDemoUpgrade = async (tier: 'premium' | 'lifetime') => {
-    // For test/sandbox demonstration in development environment
-    await updateProfile({
-      subscription_tier: tier,
-      subscription_status: 'active',
-    });
-    setSuccessNotice(`Successfully upgraded to ${tier === 'lifetime' ? 'Lifetime Founder Pro' : 'Pro Career & Business'}! Enjoy full unrestricted features.`);
-    setTimeout(() => {
-      setShowUpgradeModal(false);
-      setSuccessNotice('');
-    }, 1500);
   };
 
   return (
@@ -95,12 +94,6 @@ export const UpgradeModal: React.FC = () => {
         {errorMessage && (
           <div className="p-3 mb-4 text-xs bg-red-50 text-red-700 rounded-lg border border-red-200">
             {errorMessage}
-          </div>
-        )}
-
-        {successNotice && (
-          <div className="p-3 mb-4 text-xs bg-green-50 text-green-700 rounded-lg border border-green-200 font-semibold text-center">
-            {successNotice}
           </div>
         )}
 
@@ -153,15 +146,6 @@ export const UpgradeModal: React.FC = () => {
             {isProcessing ? 'Connecting to Paystack...' : `Pay ₦${plans.find(p => p.id === selectedTier)?.priceNGN.toLocaleString()} with Paystack`}
           </button>
 
-          {/* Test Sandbox Activator for Development Verification */}
-          <div className="pt-2 text-center border-t border-gray-100">
-            <button
-              onClick={() => handleDemoUpgrade(selectedTier)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
-            >
-              Development / Testing: Instant Sandbox Activation ({selectedTier === 'lifetime' ? 'Lifetime Pro' : 'Monthly Pro'})
-            </button>
-          </div>
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-gray-400">
