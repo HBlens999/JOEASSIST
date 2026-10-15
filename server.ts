@@ -15,54 +15,120 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// JSON body parsing for Express running through Cloudflare's Node HTTP adapter.
-// Express receives a Node-compatible IncomingMessage here, not the original
-// Fetch API Request, so req.text()/req.json() are not available on this object.
-// Avoid express.json/body-parser because its iconv-lite dependency currently
-// fails during Worker bundle validation. Preserve raw bytes for Paystack HMAC.
+// Runtime-agnostic byte and HMAC helpers. Prefer Web Crypto, with Node crypto as fallback.
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder('utf-8');
+
+function concatUint8Arrays(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let difference = 0;
+  for (let i = 0; i < a.length; i++) difference |= a[i] ^ b[i];
+  return difference === 0;
+}
+
+async function computeHmacHex(secret: string, data: Uint8Array): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle && typeof subtle.importKey === 'function') {
+    const key = await subtle.importKey(
+      'raw',
+      textEncoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign'],
+    );
+    const signature = await subtle.sign('HMAC', key, data);
+    return Array.from(new Uint8Array(signature))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  // Node-compatible fallback for local development or adapters without Web Crypto.
+  const hmac = crypto.createHmac('sha512', secret);
+  if (typeof Buffer !== 'undefined') hmac.update(Buffer.from(data));
+  else hmac.update(data);
+  return hmac.digest('hex');
+}
+
+function getContentTypeHeader(request: any): string {
+  const headers = request?.headers;
+  if (!headers) return '';
+  if (typeof headers.get === 'function') {
+    return String(headers.get('content-type') || '').toLowerCase();
+  }
+  if (typeof headers === 'object') {
+    return String(headers['content-type'] || headers['Content-Type'] || '').toLowerCase();
+  }
+  return '';
+}
+
+// Express receives a Node-compatible request through the current Cloudflare adapter.
+// The Fetch Request branch is retained for adapters that pass a Fetch-like request directly.
 app.use(async (req: Request, res: Response, next: NextFunction) => {
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
     (req as any).body = {};
+    (req as any).rawBody = new Uint8Array(0);
     return next();
   }
 
-  const getContentType = (request: any): string => {
-    // Fetch Request: Headers is a Headers instance with .get().
-    if (request?.headers && typeof request.headers.get === 'function') {
-      return String(request.headers.get('content-type') || '').toLowerCase();
-    }
-    // Express / Node IncomingMessage: headers is a plain object.
-    if (request?.headers && typeof request.headers === 'object') {
-      return String(request.headers['content-type'] || '').toLowerCase();
-    }
-    return '';
-  };
-  const contentType = getContentType(req);
+  const contentType = getContentTypeHeader(req);
   if (!contentType.includes('application/json')) {
     (req as any).body = {};
-    (req as any).rawBody = Buffer.alloc(0);
+    (req as any).rawBody = new Uint8Array(0);
     return next();
   }
 
   try {
-    // Use Fetch body methods if this middleware is ever passed a Fetch Request
-    // directly by a different adapter. Express requests use the stream fallback.
-    const fetchRequest = req as any;
-    let rawBody: Buffer;
+    const fetchLike = req as any;
+    let rawBody: Uint8Array;
 
-    if (typeof fetchRequest.arrayBuffer === 'function') {
-      const bytes = await fetchRequest.arrayBuffer();
-      rawBody = Buffer.from(bytes);
+    if (fetchLike && typeof fetchLike.arrayBuffer === 'function') {
+      rawBody = new Uint8Array(await fetchLike.arrayBuffer());
     } else {
-      const chunks: Buffer[] = [];
+      const chunks: Uint8Array[] = [];
       let totalBytes = 0;
 
       await new Promise<void>((resolve, reject) => {
         let settled = false;
-        const onData = (chunk: Buffer | string) => {
+        const cleanup = () => {
+          try {
+            if (typeof req.off === 'function') {
+              req.off('data', onData);
+              req.off('end', onEnd);
+              req.off('error', onError);
+            } else {
+              req.removeListener('data', onData);
+              req.removeListener('end', onEnd);
+              req.removeListener('error', onError);
+            }
+          } catch {
+            // Cleanup is best-effort after the stream has settled.
+          }
+        };
+        const onData = (chunk: Buffer | string | Uint8Array) => {
           if (settled) return;
-          const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          let part: Uint8Array;
+          if (typeof chunk === 'string') part = textEncoder.encode(chunk);
+          else if (chunk instanceof Uint8Array) part = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+          else if (typeof Buffer !== 'undefined') part = new Uint8Array(Buffer.from(chunk as any));
+          else {
+            settled = true;
+            cleanup();
+            reject(new Error('Unsupported request body chunk type.'));
+            return;
+          }
+
           totalBytes += part.length;
           if (totalBytes > 1024 * 1024) {
             settled = true;
@@ -70,7 +136,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
             reject(Object.assign(new Error('Request body exceeds 1 MB.'), { statusCode: 413 }));
             return;
           }
-          chunks.push(part);
+          chunks.push(new Uint8Array(part));
         };
         const onEnd = () => {
           if (settled) return;
@@ -84,18 +150,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
           cleanup();
           reject(error);
         };
-        const cleanup = () => {
-          req.off('data', onData);
-          req.off('end', onEnd);
-          req.off('error', onError);
-        };
 
         req.on('data', onData);
         req.once('end', onEnd);
         req.once('error', onError);
       });
 
-      rawBody = Buffer.concat(chunks);
+      rawBody = concatUint8Arrays(chunks);
     }
 
     if (rawBody.length > 1024 * 1024) {
@@ -109,7 +170,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     }
 
     try {
-      (req as any).body = JSON.parse(rawBody.toString('utf8'));
+      (req as any).body = JSON.parse(textDecoder.decode(rawBody));
       return next();
     } catch {
       return res.status(400).json({ error: 'INVALID_JSON', message: 'Request body must contain valid JSON.' });
@@ -745,13 +806,17 @@ app.post('/api/paystack/verify', requireAuth, async (req: Request, res: Response
 // 3. Verify Paystack's signature against the exact raw request body and process events idempotently.
 app.post('/api/paystack/webhook', async (req: Request, res: Response) => {
   const secret = process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY;
-  const rawBody: Buffer | undefined = (req as any).rawBody;
+  const rawBody = (req as any).rawBody as Uint8Array | undefined;
   if (!secret || !rawBody) return res.status(503).send('Webhook is not configured.');
   const supplied = String(req.headers['x-paystack-signature'] || '');
-  const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
-  const suppliedBuffer = Buffer.from(supplied, 'utf8');
-  const expectedBuffer = Buffer.from(expected, 'utf8');
-  if (suppliedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(suppliedBuffer, expectedBuffer)) {
+  let expected = '';
+  try {
+    expected = await computeHmacHex(secret, rawBody);
+  } catch (error: any) {
+    console.error('Paystack webhook HMAC computation failed:', error?.message || error);
+    return res.status(503).send('Webhook signature verification is unavailable.');
+  }
+  if (!supplied || !constantTimeEqual(textEncoder.encode(supplied.toLowerCase()), textEncoder.encode(expected))) {
     return res.status(401).send('Invalid signature.');
   }
 
