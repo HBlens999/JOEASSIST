@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS public.cv_documents (
     volunteer_experience JSONB NOT NULL DEFAULT '[]'::jsonb,
     publications JSONB NOT NULL DEFAULT '[]'::jsonb,
     languages JSONB NOT NULL DEFAULT '[]'::jsonb,
-    references JSONB NOT NULL DEFAULT '[]'::jsonb,
+    "references" JSONB NOT NULL DEFAULT '[]'::jsonb,
     custom_sections JSONB NOT NULL DEFAULT '[]'::jsonb,
     section_order JSONB NOT NULL DEFAULT '["summary","experience","education","skills","projects","certifications","languages","awards","volunteer","publications","references"]'::jsonb,
     styling JSONB NOT NULL DEFAULT '{"fontFamily":"inter","primaryColor":"#1e3a8a","spacing":"normal","fontSize":"medium"}'::jsonb,
