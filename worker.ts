@@ -22,6 +22,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const supportAttempts = new Map<string, { count: number; resetAt: number }>();
 const PLAN_PRICES_NGN = { premium: 4500, lifetime: 18500 } as const;
+const GEMINI_MODEL = 'gemini-3.8-flash';
+const WORKER_BUILD = 'gemini-3.8-flash-interactions-2026-10-16';
 type PlanTier = keyof typeof PLAN_PRICES_NGN;
 
 function json(data: unknown, status = 200): Response {
@@ -63,8 +65,13 @@ function getAI(env: Env): GoogleGenAI | null {
 async function generateJSON(env: Env, prompt: string) {
   const ai = getAI(env);
   if (!ai) return { response: json({ error: 'GEMINI_API_KEY_MISSING', message: 'Gemini API is not configured yet. Please configure GEMINI_API_KEY in the server secrets to enable AI features.' }, 503) };
-  const result = await ai.models.generateContent({ model: 'gemini-3.8-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-  return { data: JSON.parse(result.text || '{}') };
+  const result = await ai.interactions.create({
+    model: GEMINI_MODEL,
+    input: prompt,
+    response_format: { type: 'text', mime_type: 'application/json' },
+    store: false
+  });
+  return { data: JSON.parse(result.output_text || '{}') };
 }
 async function activatePaidPlan(admin: SupabaseClient, userId: string, tier: PlanTier) {
   const { data: limits, error: limitsError } = await admin.from('usage_limits').select('*').eq('tier', tier).single();
@@ -99,9 +106,9 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
     const hasGemini = Boolean(env.GEMINI_API_KEY && !['your_gemini_api_key_here', 'MY_GEMINI_API_KEY'].includes(env.GEMINI_API_KEY));
     const hasWorkersAI = Boolean(env.AI && typeof env.AI.run === 'function');
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
-    return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.1.0', services: {
+    return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.2.0', build: WORKER_BUILD, services: {
       model1: { configured: hasWorkersAI, message: hasWorkersAI ? 'Cloudflare Workers AI binding is available' : 'Cloudflare Workers AI binding is missing from this deployment' },
-      model2: { configured: hasGemini, message: hasGemini ? 'Gemini key is available to the running Worker' : 'GEMINI_API_KEY is not available to the running Worker. Check the secret on the joeassist Worker and deploy it.' },
+      model2: { configured: hasGemini, model: GEMINI_MODEL, api: 'Interactions API', message: hasGemini ? 'Gemini key is available to the running Worker' : 'GEMINI_API_KEY is not available to the running Worker. Check the secret on the joeassist Worker and deploy it.' },
       paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
       supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
     } });
@@ -227,8 +234,13 @@ Write a natural, respectful, specific application letter body that connects only
         }
         const ai = getAI(env);
         if (!ai) return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. The administrator must add its server API key.' }, 503);
-        const result = await ai.models.generateContent({ model: 'gemini-3.8-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-        return json({ success: true, data: JSON.parse(result.text || '{}') });
+        const result = await ai.interactions.create({
+          model: GEMINI_MODEL,
+          input: prompt,
+          response_format: { type: 'text', mime_type: 'application/json' },
+          store: false
+        });
+        return json({ success: true, data: JSON.parse(result.output_text || '{}'), model: GEMINI_MODEL });
       } catch (error: any) {
         console.error('AI request failed:', error?.message || error);
         return json({ error: 'AI_REQUEST_FAILED', message: 'The selected model could not complete this request. Please try again or choose the other model.' }, 500);
