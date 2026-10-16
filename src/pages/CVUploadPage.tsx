@@ -70,6 +70,10 @@ export const CVUploadPage: React.FC<CVUploadPageProps> = ({ setCurrentTab, onExt
       const data = await res.json();
 
       if (!res.ok) {
+        if (['MODEL1_NOT_CONFIGURED', 'MODEL2_NOT_CONFIGURED'].includes(data.error)) {
+          setErrorMsg('The selected AI model is not configured yet. Choose the other model or ask the administrator to add its server API key.');
+          return;
+        }
         if (data.error === 'GEMINI_API_KEY_MISSING') {
           // Provide deterministic fallback structured CV
           const fallbackData = {
