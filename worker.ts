@@ -1,5 +1,4 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -7,7 +6,7 @@ interface Env {
   SUPABASE_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
-  GEMINI_API_KEY?: string;
+  OPENAI_API_KEY?: string;
   AI?: { run(model: string, inputs: Record<string, unknown>): Promise<any> };
   PAYSTACK_SECRET_KEY?: string;
   PAYSTACK_PUBLIC_KEY?: string;
@@ -22,8 +21,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const supportAttempts = new Map<string, { count: number; resetAt: number }>();
 const PLAN_PRICES_NGN = { premium: 4500, lifetime: 18500 } as const;
-const GEMINI_MODEL = 'gemini-3.8-flash';
-const WORKER_BUILD = 'gemini-3.8-flash-interactions-2026-10-16';
+const OPENAI_MODEL = 'gpt-4o-mini';
+const WORKER_BUILD = 'openai-gpt-4o-mini-chat-completions-2026-10-16';
 type PlanTier = keyof typeof PLAN_PRICES_NGN;
 
 function json(data: unknown, status = 200): Response {
@@ -57,22 +56,6 @@ async function authenticatedUser(request: Request, env: Env) {
   if (error || !data.user) return { response: json({ error: 'INVALID_SESSION', message: 'Your session is invalid or expired. Please sign in again.' }, 401) };
   return { user: data.user };
 }
-function getAI(env: Env): GoogleGenAI | null {
-  const key = env.GEMINI_API_KEY;
-  if (!key || key === 'your_gemini_api_key_here' || key === 'MY_GEMINI_API_KEY') return null;
-  return new GoogleGenAI({ apiKey: key, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
-}
-async function generateJSON(env: Env, prompt: string) {
-  const ai = getAI(env);
-  if (!ai) return { response: json({ error: 'GEMINI_API_KEY_MISSING', message: 'Gemini API is not configured yet. Please configure GEMINI_API_KEY in the server secrets to enable AI features.' }, 503) };
-  const result = await ai.interactions.create({
-    model: GEMINI_MODEL,
-    input: prompt,
-    response_format: { type: 'text', mime_type: 'application/json' },
-    store: false
-  });
-  return { data: JSON.parse(result.output_text || '{}') };
-}
 async function activatePaidPlan(admin: SupabaseClient, userId: string, tier: PlanTier) {
   const { data: limits, error: limitsError } = await admin.from('usage_limits').select('*').eq('tier', tier).single();
   if (limitsError || !limits) throw new Error('Could not load the configured plan entitlements.');
@@ -103,12 +86,12 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': url.origin, 'Access-Control-Allow-Headers': 'authorization, content-type, x-paystack-signature', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } });
 
   if (path === '/api/health' && method === 'GET') {
-    const hasGemini = Boolean(env.GEMINI_API_KEY && !['your_gemini_api_key_here', 'MY_GEMINI_API_KEY'].includes(env.GEMINI_API_KEY));
+    const hasOpenAI = Boolean(env.OPENAI_API_KEY && !['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(env.OPENAI_API_KEY));
     const hasWorkersAI = Boolean(env.AI && typeof env.AI.run === 'function');
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
     return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.2.0', build: WORKER_BUILD, services: {
       model1: { configured: hasWorkersAI, message: hasWorkersAI ? 'Cloudflare Workers AI binding is available' : 'Cloudflare Workers AI binding is missing from this deployment' },
-      model2: { configured: hasGemini, model: GEMINI_MODEL, api: 'Interactions API', message: hasGemini ? 'Gemini key is available to the running Worker' : 'GEMINI_API_KEY is not available to the running Worker. Check the secret on the joeassist Worker and deploy it.' },
+      model2: { configured: hasOpenAI, model: OPENAI_MODEL, api: 'Chat Completions API', message: hasOpenAI ? 'OpenAI API key is available to the running Worker' : 'OPENAI_API_KEY is not available to the running Worker. Add it as a Worker secret and deploy.' },
       paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
       supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
     } });
@@ -232,15 +215,54 @@ Write a natural, respectful, specific application letter body that connects only
             return json({ error: 'INVALID_AI_JSON', message: 'Model 1 returned an unreadable response. Please try again or choose Model 2.' }, 502);
           }
         }
-        const ai = getAI(env);
-        if (!ai) return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. The administrator must add its server API key.' }, 503);
-        const result = await ai.interactions.create({
-          model: GEMINI_MODEL,
-          input: prompt,
-          response_format: { type: 'text', mime_type: 'application/json' },
-          store: false
+        const apiKey = env.OPENAI_API_KEY;
+        if (!apiKey || ['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(apiKey)) {
+          return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. Add OPENAI_API_KEY as a Cloudflare Worker secret.' }, 503);
+        }
+        const providerResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are JOEASSIST, a professional career and business document assistant. Follow the request carefully. Never invent credentials, employers, dates, qualifications, or metrics. Return only valid JSON matching the requested schema. Do not include Markdown fences or explanations.'
+              },
+              { role: 'user', content: prompt }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.2,
+            max_tokens: 1800
+          })
         });
-        return json({ success: true, data: JSON.parse(result.output_text || '{}'), model: GEMINI_MODEL });
+        const providerData: any = await providerResponse.json().catch(() => ({}));
+        if (!providerResponse.ok) {
+          const providerError = String(providerData?.error?.message || `OpenAI API request failed with status ${providerResponse.status}`);
+          throw Object.assign(new Error(providerError), {
+            status: providerResponse.status,
+            providerCode: providerData?.error?.code || null,
+            providerType: providerData?.error?.type || null
+          });
+        }
+        const output = providerData?.choices?.[0]?.message?.content;
+        if (typeof output !== 'string' || !output.trim()) {
+          console.error('OpenAI returned no visible text:', JSON.stringify({
+            model: OPENAI_MODEL,
+            finishReason: providerData?.choices?.[0]?.finish_reason || null,
+            usage: providerData?.usage || null
+          }).slice(0, 500));
+          return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 2 did not return usable text. Please retry or choose Model 1.' }, 502);
+        }
+        try {
+          return json({ success: true, data: JSON.parse(output), model: OPENAI_MODEL });
+        } catch {
+          console.error('OpenAI returned invalid JSON:', output.slice(0, 300));
+          return json({ error: 'INVALID_AI_JSON', message: 'Model 2 returned an unreadable response. Please try again or choose Model 1.' }, 502);
+        }
       } catch (error: any) {
         const errorMessage = String(error?.message || error || 'Unknown AI provider error');
         const providerStatus = Number(error?.status || error?.statusCode || error?.response?.status || 0);
@@ -250,39 +272,39 @@ Write a natural, respectful, specific application letter body that connects only
         const isRateLimitError = providerStatus === 429 || /\b429\b|rate.?limit|quota exceeded/i.test(errorMessage);
 
         if (isTemporaryCapacityError) {
-          console.error('Gemini temporarily unavailable:', JSON.stringify({
-            model: GEMINI_MODEL,
+          console.error('OpenAI temporarily unavailable:', JSON.stringify({
+            model: OPENAI_MODEL,
             status: 503,
             message: errorMessage.slice(0, 500)
           }));
           return json({
             error: 'GEMINI_TEMPORARILY_UNAVAILABLE',
-            message: 'Google Gemini is temporarily experiencing high demand. Please wait a little and try again, or switch to Model 1.',
-            model: GEMINI_MODEL
+            message: 'OpenAI is temporarily unavailable. Please wait a little and try again, or switch to Model 1.',
+            model: OPENAI_MODEL
           }, 503);
         }
 
         if (isRateLimitError) {
           console.error('AI provider rate limit:', JSON.stringify({
-            model: GEMINI_MODEL,
+            model: OPENAI_MODEL,
             status: 429,
             message: errorMessage.slice(0, 500)
           }));
           return json({
             error: 'AI_RATE_LIMITED',
-            message: 'The selected AI model is temporarily rate-limited. Please wait before trying again, or switch to Model 1.',
-            model: GEMINI_MODEL
+            message: 'OpenAI has temporarily rate-limited this request or the account has reached its API quota. Check your OpenAI API usage and billing, then retry or switch to Model 1.',
+            model: OPENAI_MODEL
           }, 429);
         }
 
         console.error('AI request failed:', JSON.stringify({
-          model: GEMINI_MODEL,
+          model: OPENAI_MODEL,
           status: providerStatus || null,
           message: errorMessage.slice(0, 700)
         }));
         return json({
           error: 'AI_REQUEST_FAILED',
-          message: 'The selected model could not complete this request. Please try again or choose the other model.'
+          message: 'OpenAI could not complete this request. Check that the API key, model access, and API billing are valid, then retry or choose Model 1.'
         }, providerStatus >= 400 && providerStatus < 600 ? 502 : 500);
       }
     }
