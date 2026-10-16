@@ -50,3 +50,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- The trigger calls this function internally; clients must not invoke it through the Data API.
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
