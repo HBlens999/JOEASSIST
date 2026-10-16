@@ -306,10 +306,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Model: <strong>Gemini 2.5 Flash</strong> · shown to users as Model 2
+                Model: <strong>Gemini 3.8 Flash</strong> · shown to users as Model 2
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                The running Worker cannot see <code>GEMINI_API_KEY</code>. In Cloudflare, open Workers & Pages → <strong>joeassist</strong> → Settings → Variables and Secrets. Confirm the exact name and Secret type, then click <strong>Deploy</strong>. Never add it to frontend code.
+                The API key must remain a server-side Cloudflare secret named <code>GEMINI_API_KEY</code>. After changing Worker code, deploy the latest version from Workers & Pages → <strong>joeassist</strong>. Never add the key to frontend code.
               </div>
             </div>
 
