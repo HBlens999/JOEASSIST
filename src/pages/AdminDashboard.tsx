@@ -2,10 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CV_TEMPLATES } from '../templates/templateList';
 import { CVTemplateMeta } from '../types/cv';
+import { supabase } from '../lib/supabase';
 import { 
   Shield, Users, Layout, CreditCard, Sparkles, MessageSquare, 
   Database, RefreshCw, CheckCircle2, AlertTriangle, Key, Terminal, Eye, Lock 
 } from 'lucide-react';
+
+interface UploadedHtmlTemplate {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  html_content: string;
+  is_premium: boolean;
+  is_active: boolean;
+  created_at: string;
+}
 
 interface AdminDashboardProps {
   setCurrentTab: (tab: string) => void;
@@ -21,6 +34,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
 
   // Template active/premium state in admin
   const [templatesState, setTemplatesState] = useState<CVTemplateMeta[]>(CV_TEMPLATES);
+  const [uploadedTemplates, setUploadedTemplates] = useState<UploadedHtmlTemplate[]>([]);
+  const [templateName, setTemplateName] = useState('');
+  const [templateCategory, setTemplateCategory] = useState('Professional');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [templateHtml, setTemplateHtml] = useState('');
+  const [templatePremium, setTemplatePremium] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState('');
+  const [templateError, setTemplateError] = useState('');
 
   // Support messages
   const [supportRequests, setSupportRequests] = useState([
@@ -61,7 +84,110 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
 
   useEffect(() => {
     fetchHealth();
+    void loadUploadedTemplates();
   }, []);
+
+  const loadUploadedTemplates = async () => {
+    const { data, error } = await supabase
+      .from('custom_html_templates')
+      .select('id,slug,name,category,description,html_content,is_premium,is_active,created_at')
+      .order('created_at', { ascending: false });
+    if (error) {
+      setTemplateError('Could not load uploaded templates: ' + error.message);
+      return;
+    }
+    setUploadedTemplates((data || []) as UploadedHtmlTemplate[]);
+  };
+
+  const resetTemplateForm = () => {
+    setTemplateName('');
+    setTemplateCategory('Professional');
+    setTemplateDescription('');
+    setTemplateHtml('');
+    setTemplatePremium(false);
+    setEditingTemplateId(null);
+    setTemplateMessage('');
+    setTemplateError('');
+  };
+
+  const handleTemplateFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.html') && file.type !== 'text/html') {
+      setTemplateError('Please select an .html file.');
+      return;
+    }
+    if (file.size > 500 * 1024) {
+      setTemplateError('The HTML template must be 500 KB or smaller.');
+      return;
+    }
+    const content = await file.text();
+    if (!content.trim() || !/<html[\\s>]|<body[\\s>]|<div[\\s>]/i.test(content)) {
+      setTemplateError('This file does not appear to contain a valid HTML template.');
+      return;
+    }
+    setTemplateHtml(content);
+    setTemplateError('');
+    if (!templateName) setTemplateName(file.name.replace(/\\.html?$/i, '').replace(/[-_]+/g, ' '));
+  };
+
+  const saveUploadedTemplate = async () => {
+    setTemplateError('');
+    setTemplateMessage('');
+    if (templateName.trim().length < 2) return setTemplateError('Enter a template name with at least 2 characters.');
+    if (templateHtml.trim().length < 20) return setTemplateError('Choose an .html file before saving.');
+    setTemplateSaving(true);
+    try {
+      const slugBase = templateName.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'custom-template';
+      const payload = {
+        name: templateName.trim(),
+        category: templateCategory.trim() || 'Professional',
+        description: templateDescription.trim(),
+        html_content: templateHtml,
+        is_premium: templatePremium,
+        updated_at: new Date().toISOString(),
+      };
+      const result = editingTemplateId
+        ? await supabase.from('custom_html_templates').update(payload).eq('id', editingTemplateId)
+        : await supabase.from('custom_html_templates').insert({ ...payload, slug: `${slugBase}-${Date.now().toString(36)}`, created_by: user?.id });
+      if (result.error) throw result.error;
+      setTemplateMessage(editingTemplateId ? 'Template updated and saved.' : 'HTML template uploaded and saved.');
+      resetTemplateForm();
+      await loadUploadedTemplates();
+    } catch (error: any) {
+      setTemplateError(error?.message || 'Could not save the HTML template.');
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const editUploadedTemplate = (template: UploadedHtmlTemplate) => {
+    setEditingTemplateId(template.id);
+    setTemplateName(template.name);
+    setTemplateCategory(template.category);
+    setTemplateDescription(template.description || '');
+    setTemplateHtml(template.html_content);
+    setTemplatePremium(template.is_premium);
+    setTemplateMessage('');
+    setTemplateError('');
+    document.getElementById('uploaded-html-template-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const updateUploadedTemplate = async (id: string, updates: Partial<Pick<UploadedHtmlTemplate, 'is_active' | 'is_premium'>>) => {
+    const { error } = await supabase.from('custom_html_templates').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) setTemplateError('Could not update template: ' + error.message);
+    else await loadUploadedTemplates();
+  };
+
+  const deleteUploadedTemplate = async (template: UploadedHtmlTemplate) => {
+    if (!window.confirm(`Delete uploaded template "${template.name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from('custom_html_templates').delete().eq('id', template.id);
+    if (error) setTemplateError('Could not delete template: ' + error.message);
+    else {
+      if (editingTemplateId === template.id) resetTemplateForm();
+      await loadUploadedTemplates();
+      setTemplateMessage('Template deleted.');
+    }
+  };
 
   const toggleTemplateActive = (id: string) => {
     setTemplatesState(prev => prev.map(t => t.id === id ? { ...t, isPremium: !t.isPremium } : t));
@@ -145,24 +271,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
       {/* 1. OVERVIEW & SERVICE STATUS */}
       {activeAdminTab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {/* Gemini AI Status */}
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-500 uppercase">Google Gemini AI</span>
+                <span className="text-xs font-bold text-gray-500 uppercase">AI Model 1 · OpenAI</span>
                 <Sparkles className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${systemStatus?.services?.gemini?.configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className={`w-3 h-3 rounded-full ${systemStatus?.services?.model1?.configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                 <span className="font-bold text-sm text-gray-900">
-                  {systemStatus?.services?.gemini?.configured ? 'Active & Ready' : 'Key Pending in Server'}
+                  {systemStatus?.services?.model1?.configured ? 'Configured' : 'API key pending in Cloudflare'}
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Model: <strong>gemini-3.8-flash</strong> (Official @google/genai SDK)
+                Model: <strong>GPT-4o mini</strong> · shown to users as Model 1
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                Configured via secure server-side env variable <code>GEMINI_API_KEY</code>.
+                Set the server-side Cloudflare secret <code>OPENAI_API_KEY</code>. Never add it to frontend code.
+              </div>
+            </div>
+
+            {/* Paystack Gateway Status */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-500 uppercase">AI Model 2 · Google Gemini</span>
+                <CreditCard className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${systemStatus?.services?.model2?.configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className="font-bold text-sm text-gray-900">
+                  {systemStatus?.services?.model2?.configured ? 'Configured' : 'API key pending in Cloudflare'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">
+                Model: <strong>Gemini 2.5 Flash</strong> · shown to users as Model 2
+              </p>
+              <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
+                Set the server-side Cloudflare secret <code>GEMINI_API_KEY</code>. Never add it to frontend code.
               </div>
             </div>
 
@@ -174,18 +320,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
               </div>
               <div className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${systemStatus?.services?.paystack?.configured ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                <span className="font-bold text-sm text-gray-900">
-                  {systemStatus?.services?.paystack?.configured ? 'Live Mode Active' : 'Ready for Keys'}
-                </span>
+                <span className="font-bold text-sm text-gray-900">{systemStatus?.services?.paystack?.configured ? 'Live Mode Active' : 'Ready for Keys'}</span>
               </div>
-              <p className="text-xs text-gray-500">
-                Server-side verification endpoint: <code>/api/paystack/verify</code>
-              </p>
-              <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                HMAC-SHA512 webhook signature verification enabled.
-              </div>
+              <p className="text-xs text-gray-500">Server-side verification endpoint: <code>/api/paystack/verify</code></p>
+              <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">Payment secret keys stay server-side.</div>
             </div>
-
             {/* Supabase PostgreSQL Status */}
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
@@ -215,6 +354,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
               <h3 className="font-bold text-gray-900 text-base">CV Templates Catalog ({templatesState.length})</h3>
               <p className="text-xs text-gray-500">Toggle template availability and premium flags</p>
             </div>
+          </div>
+
+          <div id="uploaded-html-template-form" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50/50 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div>
+                <h4 className="font-bold text-gray-900">{editingTemplateId ? 'Edit Uploaded HTML Template' : 'Upload Your HTML CV Template'}</h4>
+                <p className="text-xs text-gray-600 mt-1">Upload a self-contained .html file (maximum 500 KB). Keep scripts out of CV templates; use the placeholder guide below for personal CV data.</p>
+              </div>
+              {editingTemplateId && <button onClick={resetTemplateForm} className="text-xs font-bold text-gray-600 underline">Cancel edit</button>}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-xs font-semibold text-gray-700">Template name
+                <input value={templateName} onChange={e => setTemplateName(e.target.value)} maxLength={100} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="e.g. Executive Blue CV" />
+              </label>
+              <label className="text-xs font-semibold text-gray-700">Category
+                <input value={templateCategory} onChange={e => setTemplateCategory(e.target.value)} maxLength={60} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Professional" />
+              </label>
+              <label className="text-xs font-semibold text-gray-700 md:col-span-2">Description
+                <input value={templateDescription} onChange={e => setTemplateDescription(e.target.value)} maxLength={500} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Short description shown in the template gallery" />
+              </label>
+              <label className="text-xs font-semibold text-gray-700 md:col-span-2">HTML file
+                <input type="file" accept=".html,text/html" onChange={e => void handleTemplateFile(e.target.files?.[0])} className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                <span className="mt-1 block text-[11px] font-normal text-gray-500">{templateHtml ? `HTML loaded · ${Math.round(new Blob([templateHtml]).size / 1024)} KB` : 'Choose the .html file from your computer.'}</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 md:col-span-2">
+                <input type="checkbox" checked={templatePremium} onChange={e => setTemplatePremium(e.target.checked)} />
+                Mark as Pro template
+              </label>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-white p-3 text-[11px] text-gray-600">
+              <strong>Supported placeholders:</strong> <code>{{fullName}}</code>, <code>{{professionalTitle}}</code>, <code>{{email}}</code>, <code>{{phone}}</code>, <code>{{location}}</code>, <code>{{summary}}</code>, <code>{{experience}}</code>, <code>{{education}}</code>, and <code>{{skills}}</code>.
+            </div>
+            {templateError && <p role="alert" className="text-xs font-semibold text-red-600">{templateError}</p>}
+            {templateMessage && <p role="status" className="text-xs font-semibold text-emerald-700">{templateMessage}</p>}
+            <button onClick={() => void saveUploadedTemplate()} disabled={templateSaving} className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+              {templateSaving ? 'Saving…' : editingTemplateId ? 'Save Template Changes' : 'Upload & Save HTML Template'}
+            </button>
+          </div>
+
+          <div className="mb-8 space-y-3">
+            <h4 className="font-bold text-gray-900">Uploaded HTML Templates ({uploadedTemplates.length})</h4>
+            {uploadedTemplates.length === 0 ? <p className="rounded-xl bg-gray-50 p-4 text-xs text-gray-500">No custom HTML templates uploaded yet.</p> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead><tr className="border-b text-[10px] uppercase text-gray-500"><th className="py-2">Name</th><th className="py-2">Category</th><th className="py-2">Visibility</th><th className="py-2">Access</th><th className="py-2 text-right">Actions</th></tr></thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {uploadedTemplates.map(tpl => <tr key={tpl.id}>
+                      <td className="py-3 pr-3"><strong>{tpl.name}</strong><p className="mt-1 text-[10px] text-gray-500">{tpl.description}</p></td>
+                      <td className="py-3 pr-3">{tpl.category}</td>
+                      <td className="py-3">{tpl.is_active ? 'Published' : 'Hidden'}</td>
+                      <td className="py-3">{tpl.is_premium ? 'Pro' : 'Free'}</td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-1 flex-wrap">
+                          <button onClick={() => editUploadedTemplate(tpl)} className="rounded-lg border px-2 py-1 font-semibold text-blue-700">Edit</button>
+                          <button onClick={() => void updateUploadedTemplate(tpl.id, { is_active: !tpl.is_active })} className="rounded-lg border px-2 py-1 font-semibold">{tpl.is_active ? 'Hide' : 'Publish'}</button>
+                          <button onClick={() => void updateUploadedTemplate(tpl.id, { is_premium: !tpl.is_premium })} className="rounded-lg border px-2 py-1 font-semibold">{tpl.is_premium ? 'Make Free' : 'Make Pro'}</button>
+                          <button onClick={() => void deleteUploadedTemplate(tpl)} className="rounded-lg border border-red-200 px-2 py-1 font-semibold text-red-600">Delete</button>
+                        </div>
+                      </td>
+                    </tr>)}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">
