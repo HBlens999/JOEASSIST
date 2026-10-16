@@ -65,6 +65,10 @@ B.Sc. in Computer Science - University of Nigeria`);
       const data = await response.json();
 
       if (!response.ok) {
+        if (['MODEL1_NOT_CONFIGURED', 'MODEL2_NOT_CONFIGURED'].includes(data.error)) {
+          setErrorMessage('The selected AI model is not configured yet. Choose the other model or ask the administrator to add its server API key.');
+          return;
+        }
         if (data.error === 'GEMINI_API_KEY_MISSING') {
           // Provide an explainable, deterministic baseline audit when API key is pending
           setAuditResult({
