@@ -286,10 +286,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Model: <strong>Llama 3.1 8B Instruct</strong> · Cloudflare Workers AI · shown to users as Model 1
+                Model: <strong>GLM 4.7 Flash</strong> · Cloudflare Workers AI · shown to users as Model 1
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                Uses the Cloudflare Workers AI binding. No separate model API key is required.
+                Uses Cloudflare Workers AI with a current-generation instruction model. No separate model API key is required.
               </div>
             </div>
 
