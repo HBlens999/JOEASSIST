@@ -286,7 +286,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Model: <strong>GPT-4o mini</strong> · shown to users as Model 1
+                Model: <strong>GPT-6 Luna</strong> · shown to users as Model 1
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
                 Set the server-side Cloudflare secret <code>OPENAI_API_KEY</code>. Never add it to frontend code.
