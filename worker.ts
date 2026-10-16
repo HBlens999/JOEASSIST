@@ -190,8 +190,10 @@ Write a natural, respectful, specific application letter body that connects only
               },
               { role: 'user', content: prompt }
             ],
-            max_tokens: 3000,
-            temperature: 0.2
+            max_completion_tokens: 3000,
+            temperature: 0.2,
+            reasoning_effort: 'low',
+            chat_template_kwargs: { enable_thinking: false }
           });
           const output = typeof result?.response === 'string' ? result.response : typeof result?.output === 'string' ? result.output : '';
           if (!output.trim()) {
