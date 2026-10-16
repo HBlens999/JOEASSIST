@@ -102,7 +102,7 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Google Gemini 3.8 Flash AI Model</span>
+                <span>Selectable AI Models: Model 1 & Model 2</span>
               </div>
             </div>
             <div className="pt-2">
