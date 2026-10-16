@@ -121,13 +121,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
       return;
     }
     const content = await file.text();
-    if (!content.trim() || !/<html[\\s>]|<body[\\s>]|<div[\\s>]/i.test(content)) {
+    if (!content.trim() || !/<html[\s>]|<body[\s>]|<div[\s>]/i.test(content)) {
       setTemplateError('This file does not appear to contain a valid HTML template.');
       return;
     }
     setTemplateHtml(content);
     setTemplateError('');
-    if (!templateName) setTemplateName(file.name.replace(/\\.html?$/i, '').replace(/[-_]+/g, ' '));
+    if (!templateName) setTemplateName(file.name.replace(/\.html?$/i, '').replace(/[-_]+/g, ' '));
   };
 
   const saveUploadedTemplate = async () => {
@@ -150,8 +150,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
         ? await supabase.from('custom_html_templates').update(payload).eq('id', editingTemplateId)
         : await supabase.from('custom_html_templates').insert({ ...payload, slug: `${slugBase}-${Date.now().toString(36)}`, created_by: user?.id });
       if (result.error) throw result.error;
-      setTemplateMessage(editingTemplateId ? 'Template updated and saved.' : 'HTML template uploaded and saved.');
+      const wasEditing = Boolean(editingTemplateId);
       resetTemplateForm();
+      setTemplateMessage(wasEditing ? 'Template updated and saved.' : 'HTML template uploaded and saved.');
       await loadUploadedTemplates();
     } catch (error: any) {
       setTemplateError(error?.message || 'Could not save the HTML template.');
