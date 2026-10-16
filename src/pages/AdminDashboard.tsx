@@ -12,7 +12,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab }) => {
-  const { user, isAdmin, loginAsDemoUser } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'templates' | 'pricing' | 'support' | 'system' | 'sql'>('overview');
   
   // Health & System status
@@ -78,13 +78,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
           This restricted area is reserved for authorized administrators of JOEASSIST (founder: Joseph Chiemezie).
         </p>
         <div className="pt-2 flex flex-col gap-2">
-          <button
-            onClick={() => loginAsDemoUser('admin', 'lifetime')}
-            className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs"
-          >
-            Switch to Founder / Admin Role (Development Verification)
-          </button>
-          <button
+<button
             onClick={() => setCurrentTab('home')}
             className="w-full py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
           >
