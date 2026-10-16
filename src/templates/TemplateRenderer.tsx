@@ -79,7 +79,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">Loading uploaded HTML template…</div>;
   return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top center', overflow: 'hidden' }}>
-    <iframe title="Uploaded CV template preview" sandbox="" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
+    <iframe title="Uploaded CV template preview" sandbox="allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
   </div>;
 };
 
