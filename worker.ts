@@ -101,7 +101,7 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
     return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.1.0', services: {
       model1: { configured: hasWorkersAI, message: hasWorkersAI ? 'Cloudflare Workers AI binding is available' : 'Cloudflare Workers AI binding is missing from this deployment' },
-      model2: { configured: hasGemini, message: hasGemini ? 'Configured' : 'Model 2 server key is not configured' },
+      model2: { configured: hasGemini, message: hasGemini ? 'Gemini key is available to the running Worker' : 'GEMINI_API_KEY is not available to the running Worker. Check the secret on the joeassist Worker and deploy it.' },
       paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
       supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
     } });
