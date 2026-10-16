@@ -8,6 +8,7 @@ interface Env {
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   GEMINI_API_KEY?: string;
+  OPENAI_API_KEY?: string;
   PAYSTACK_SECRET_KEY?: string;
   PAYSTACK_PUBLIC_KEY?: string;
   VITE_PAYSTACK_PUBLIC_KEY?: string;
@@ -96,12 +97,18 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
 
   if (path === '/api/health' && method === 'GET') {
     const hasGemini = Boolean(env.GEMINI_API_KEY && !['your_gemini_api_key_here', 'MY_GEMINI_API_KEY'].includes(env.GEMINI_API_KEY));
+    const hasOpenAI = Boolean(env.OPENAI_API_KEY && !['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(env.OPENAI_API_KEY));
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
-    return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.0.0', services: { gemini: { configured: hasGemini, model: 'gemini-2.5-flash', message: hasGemini ? 'Connected and operational' : 'GEMINI_API_KEY is not configured in server environment' }, paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' }, supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true } } });
+    return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.1.0', services: {
+      model1: { configured: hasOpenAI, message: hasOpenAI ? 'Configured' : 'Model 1 server key is not configured' },
+      model2: { configured: hasGemini, message: hasGemini ? 'Configured' : 'Model 2 server key is not configured' },
+      paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
+      supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
+    } });
   }
 
-  const isGemini = path.startsWith('/api/gemini/');
-  const isProtected = isGemini || path === '/api/paystack/initialize' || path === '/api/paystack/verify';
+  const isAI = path.startsWith('/api/ai/') || path.startsWith('/api/gemini/');
+  const isProtected = isAI || path === '/api/paystack/initialize' || path === '/api/paystack/verify';
   let user: any = null;
   if (isProtected) {
     const auth = await authenticatedUser(request, env);
@@ -109,16 +116,16 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
     user = auth.user;
   }
 
-  if (method === 'POST' && (path.startsWith('/api/gemini/') || path.startsWith('/api/paystack/') || path === '/api/support')) {
+  if (method === 'POST' && (path.startsWith('/api/ai/') || path.startsWith('/api/gemini/') || path.startsWith('/api/paystack/') || path === '/api/support')) {
     const parsed = await readBody(request);
     if (parsed instanceof Response) return parsed;
     const body = parsed.body || {};
 
-    if (path.startsWith('/api/gemini/')) {
-      const ai = getAI(env);
-      if (!ai) return json({ error: 'GEMINI_API_KEY_MISSING', message: 'Gemini API is not configured yet. Please configure GEMINI_API_KEY in the server secrets to enable AI features.' }, 503);
+    if (path.startsWith('/api/ai/') || path.startsWith('/api/gemini/')) {
+      const requestedModel = body.model === 'model1' ? 'model1' : 'model2';
+      const routePath = path.startsWith('/api/ai/') ? path.replace('/api/ai/', '/api/gemini/') : path;
       let prompt = '';
-      switch (path) {
+      switch (routePath) {
         case '/api/gemini/cv-draft':
           if (!body.targetRole && !body.experienceSummary) return json({ error: 'Please provide at least a target role or experience summary.' }, 400);
           prompt = `You are an executive CV writer and ATS specialist for JOEASSIST.
@@ -151,11 +158,37 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
         default: return json({ error: 'NOT_FOUND', message: 'API route not found.' }, 404);
       }
       try {
+        if (requestedModel === 'model1') {
+          const apiKey = env.OPENAI_API_KEY;
+          if (!apiKey || ['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(apiKey)) {
+            return json({ error: 'MODEL1_NOT_CONFIGURED', message: 'Model 1 is not configured yet. The administrator must add its server API key.' }, 503);
+          }
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'system', content: 'You are JOEASSIST, a professional career and business document assistant. Follow the user request carefully. Return only valid JSON matching the requested schema. Never invent credentials, employers, dates, qualifications, or metrics.' }, { role: 'user', content: prompt }],
+              response_format: { type: 'json_object' },
+              temperature: 0.4
+            })
+          });
+          const payload: any = await response.json();
+          if (!response.ok) {
+            console.error('Model 1 request failed:', response.status, payload?.error?.type || payload?.error?.code || 'provider_error');
+            return json({ error: 'MODEL_REQUEST_FAILED', message: 'Model 1 could not complete this request. Check the server API configuration or try Model 2.' }, 502);
+          }
+          const output = payload.choices?.[0]?.message?.content;
+          if (!output) return json({ error: 'EMPTY_AI_RESPONSE', message: 'The selected model returned an empty response. Please try again.' }, 502);
+          return json({ success: true, data: JSON.parse(output) });
+        }
+        const ai = getAI(env);
+        if (!ai) return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. The administrator must add its server API key.' }, 503);
         const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
         return json({ success: true, data: JSON.parse(result.text || '{}') });
       } catch (error: any) {
-        console.error('Gemini request failed:', error?.message || error);
-        return json({ error: 'AI request failed. Please try again.' }, 500);
+        console.error('AI request failed:', error?.message || error);
+        return json({ error: 'AI_REQUEST_FAILED', message: 'The selected model could not complete this request. Please try again or choose the other model.' }, 500);
       }
     }
 
