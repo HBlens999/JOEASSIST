@@ -78,7 +78,7 @@ const SAMPLE_CV: CVDocument = {
     {
       id: 'sk-2',
       category: 'AI & Methodologies',
-      items: ['Gemini API', 'RESTful APIs', 'CI/CD Pipelines', 'Docker', 'Agile Scrum']
+      items: ['AI APIs', 'RESTful APIs', 'CI/CD Pipelines', 'Docker', 'Agile Scrum']
     }
   ],
   projects: [
@@ -87,7 +87,7 @@ const SAMPLE_CV: CVDocument = {
       name: 'JOEASSIST Platform',
       role: 'Creator & Lead Architect',
       description: 'End-to-end AI career & business documents generation suite serving professionals and businesses.',
-      technologies: ['React', 'Express', 'Gemini AI', 'Supabase', 'Paystack']
+      technologies: ['React', 'Express', 'AI model integration', 'Supabase', 'Paystack']
     }
   ],
   certifications: [
@@ -155,7 +155,7 @@ export const HomePage: React.FC<HomePageProps> = ({ setCurrentTab, onSelectTempl
           <div className="text-center max-w-3xl mx-auto space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100/70 border border-blue-200 text-blue-800 text-xs font-bold uppercase tracking-wider">
               <Sparkles className="w-4 h-4 text-blue-600" />
-              <span>Founded by Joseph Chiemezie • Powered by Gemini AI</span>
+              <span>Founded by Joseph Chiemezie • AI powered · choose Model 1 or Model 2</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight leading-[1.15]">
@@ -282,7 +282,7 @@ export const HomePage: React.FC<HomePageProps> = ({ setCurrentTab, onSelectTempl
       {/* AI Interactive Feature Spotlight */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10">
-          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Built-In Gemini AI</span>
+          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Dual AI Model Support</span>
           <h2 className="text-3xl font-extrabold text-gray-900 mt-1">Smart Assistance That Never Fabricates Facts</h2>
           <p className="text-xs sm:text-sm text-gray-600 mt-2">
             JOEASSIST transforms basic task descriptions into executive, metric-focused bullet points using Google's XYZ formula. Try it live:
