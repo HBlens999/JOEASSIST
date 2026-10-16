@@ -162,8 +162,14 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
           if (!env.AI || typeof env.AI.run !== 'function') {
             return json({ error: 'MODEL1_NOT_CONFIGURED', message: 'Cloudflare Workers AI is not bound to this Worker. Add the AI binding and redeploy.' }, 503);
           }
-          const result: any = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-            prompt: `You are JOEASSIST, a professional career and business document assistant. Follow the request carefully. Never invent credentials, employers, dates, qualifications, or metrics. Return only valid JSON matching the schema requested below. Do not include Markdown fences or explanations.\n\nREQUEST:\n${prompt}`,
+          const result: any = await env.AI.run('@cf/zai-org/glm-4.7-flash', {
+            messages: [
+              {
+                role: 'system',
+                content: 'You are JOEASSIST, a professional career and business document assistant. Follow the request carefully. Never invent credentials, employers, dates, qualifications, or metrics. Return only valid JSON matching the requested schema. Do not include Markdown fences or explanations.'
+              },
+              { role: 'user', content: prompt }
+            ],
             max_tokens: 3000,
             temperature: 0.2
           });
