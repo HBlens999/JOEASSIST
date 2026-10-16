@@ -72,7 +72,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
   const fetchHealth = async () => {
     setIsRefreshing(true);
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`/api/health?refresh=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       setSystemStatus(data);
     } catch {
