@@ -63,7 +63,7 @@ function getAI(env: Env): GoogleGenAI | null {
 async function generateJSON(env: Env, prompt: string) {
   const ai = getAI(env);
   if (!ai) return { response: json({ error: 'GEMINI_API_KEY_MISSING', message: 'Gemini API is not configured yet. Please configure GEMINI_API_KEY in the server secrets to enable AI features.' }, 503) };
-  const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
+  const result = await ai.models.generateContent({ model: 'gemini-3.8-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
   return { data: JSON.parse(result.text || '{}') };
 }
 async function activatePaidPlan(admin: SupabaseClient, userId: string, tier: PlanTier) {
@@ -227,7 +227,7 @@ Write a natural, respectful, specific application letter body that connects only
         }
         const ai = getAI(env);
         if (!ai) return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. The administrator must add its server API key.' }, 503);
-        const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
+        const result = await ai.models.generateContent({ model: 'gemini-3.8-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
         return json({ success: true, data: JSON.parse(result.text || '{}') });
       } catch (error: any) {
         console.error('AI request failed:', error?.message || error);
