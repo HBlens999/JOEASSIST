@@ -22,8 +22,12 @@ export async function exportElementToPDF(
   const { filename = 'document.pdf', isWatermarkFree = true } = options;
 
   try {
+    // Uploaded HTML templates render in a script-disabled sandboxed iframe.
+    // Capture its document body when accessible so custom layouts are included in PDF export.
+    const templateFrame = element.querySelector('iframe') as HTMLIFrameElement | null;
+    const captureElement = templateFrame?.contentDocument?.body || element;
     // Generate high resolution canvas (scale: 2 for 300DPI crispness)
-    const canvas = await html2canvas(element, {
+    const canvas = await html2canvas(captureElement, {
       scale: 2,
       useCORS: true,
       logging: false,
