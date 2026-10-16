@@ -250,7 +250,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
       <div className="flex border-b border-gray-200 gap-6 text-sm font-bold overflow-x-auto">
         {[
           { id: 'overview', label: 'Platform Status' },
-          { id: 'templates', label: `Manage Templates (${templatesState.length})` },
+          { id: 'templates', label: `Manage Templates (${templatesState.length + uploadedTemplates.length})` },
           { id: 'support', label: `Support Inbox (${supportRequests.length})` },
           { id: 'sql', label: 'Supabase SQL Migrations' },
         ].map(tab => (
@@ -351,7 +351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
         <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-xs space-y-4">
           <div className="flex justify-between items-center border-b pb-4">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">CV Templates Catalog ({templatesState.length})</h3>
+              <h3 className="font-bold text-gray-900 text-base">CV Templates Catalog ({templatesState.length + uploadedTemplates.length})</h3>
               <p className="text-xs text-gray-500">Toggle template availability and premium flags</p>
             </div>
           </div>
