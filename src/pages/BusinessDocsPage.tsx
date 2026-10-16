@@ -92,7 +92,7 @@ export const BusinessDocsPage: React.FC<BusinessDocsPageProps> = ({ setCurrentTa
     client,
     executive_summary: 'JOEASSIST Enterprises proposes a complete end-to-end modernization of your digital workflow, integrating automated document creation, high-performance database architectures, and secure payment processing.',
     client_needs: 'The client requires a dependable, modern web platform accessible on mobile devices with automated invoicing, document generation, and Nigerian payment integrations.',
-    proposed_solution: 'Implement a modern web application built on React, PostgreSQL with Row Level Security, Paystack gateway, and Google Gemini AI processing.',
+    proposed_solution: 'Implement a modern web application built on React, PostgreSQL with Row Level Security, Paystack gateway, and AI-assisted processing.',
     deliverables: [
       { id: '1', title: 'System Architecture Design', description: 'Detailed database schema and API documentation.' },
       { id: '2', title: 'Core Application Engine', description: 'React frontend with responsive Android and desktop views.' },
