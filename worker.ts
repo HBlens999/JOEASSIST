@@ -163,14 +163,14 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
           if (!apiKey || ['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(apiKey)) {
             return json({ error: 'MODEL1_NOT_CONFIGURED', message: 'Model 1 is not configured yet. The administrator must add its server API key.' }, 503);
           }
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          const response = await fetch('https://api.openai.com/v1/responses', {
             method: 'POST',
             headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [{ role: 'system', content: 'You are JOEASSIST, a professional career and business document assistant. Follow the user request carefully. Return only valid JSON matching the requested schema. Never invent credentials, employers, dates, qualifications, or metrics.' }, { role: 'user', content: prompt }],
-              response_format: { type: 'json_object' },
-              temperature: 0.4
+              model: 'gpt-6-luna',
+              instructions: 'You are JOEASSIST, a professional career and business document assistant. Follow the user request carefully. Return only valid JSON matching the requested schema. Never invent credentials, employers, dates, qualifications, or metrics.',
+              input: prompt,
+              text: { format: { type: 'json_object' } }
             })
           });
           const payload: any = await response.json();
@@ -178,7 +178,7 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
             console.error('Model 1 request failed:', response.status, payload?.error?.type || payload?.error?.code || 'provider_error');
             return json({ error: 'MODEL_REQUEST_FAILED', message: 'Model 1 could not complete this request. Check the server API configuration or try Model 2.' }, 502);
           }
-          const output = payload.choices?.[0]?.message?.content;
+          const output = payload.output_text || payload.output?.flatMap((item: any) => item.content || []).find((item: any) => item.type === 'output_text')?.text;
           if (!output) return json({ error: 'EMPTY_AI_RESPONSE', message: 'The selected model returned an empty response. Please try again.' }, 502);
           return json({ success: true, data: JSON.parse(output) });
         }
