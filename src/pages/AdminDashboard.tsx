@@ -384,7 +384,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
               </label>
             </div>
             <div className="rounded-xl border border-blue-100 bg-white p-3 text-[11px] text-gray-600">
-              <strong>Supported placeholders:</strong> <code>{{fullName}}</code>, <code>{{professionalTitle}}</code>, <code>{{email}}</code>, <code>{{phone}}</code>, <code>{{location}}</code>, <code>{{summary}}</code>, <code>{{experience}}</code>, <code>{{education}}</code>, and <code>{{skills}}</code>.
+              <strong>Supported placeholders:</strong> <code>{'{{fullName}}'}</code>, <code>{'{{professionalTitle}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{phone}}'}</code>, <code>{'{{location}}'}</code>, <code>{'{{summary}}'}</code>, <code>{'{{experience}}'}</code>, <code>{'{{education}}'}</code>, and <code>{'{{skills}}'}</code>.
             </div>
             {templateError && <p role="alert" className="text-xs font-semibold text-red-600">{templateError}</p>}
             {templateMessage && <p role="status" className="text-xs font-semibold text-emerald-700">{templateMessage}</p>}
