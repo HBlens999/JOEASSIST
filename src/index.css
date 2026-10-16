@@ -35,3 +35,61 @@
     margin: 10mm;
   }
 }
+
+
+/* The cover-letter Print action must print only the letter, never the application UI. */
+@media print {
+  body.printing-cover-letter {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-cover-letter * {
+    visibility: hidden !important;
+  }
+
+  body.printing-cover-letter #cover-letter-printable,
+  body.printing-cover-letter #cover-letter-printable * {
+    visibility: visible !important;
+  }
+
+  body.printing-cover-letter #cover-letter-printable {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 190mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    transform: none !important;
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.printing-cover-letter #cover-letter-printable textarea {
+    border: 0 !important;
+    outline: none !important;
+    resize: none !important;
+    overflow: visible !important;
+    color: #111 !important;
+    background: transparent !important;
+    font-size: 11pt !important;
+  }
+
+  body.printing-cover-letter #cover-letter-printable .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}
