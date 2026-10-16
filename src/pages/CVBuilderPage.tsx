@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { CVDocument, WorkExperienceItem, EducationItem, SkillItem, ProjectItem, CertificationItem, LanguageItem } from '../types/cv';
 import { CV_TEMPLATES } from '../templates/templateList';
+import { supabase } from '../lib/supabase';
 import { TemplateRenderer } from '../templates/TemplateRenderer';
 import { exportElementToPDF } from '../lib/pdfExport';
 import { useAuth } from '../context/AuthContext';
@@ -104,6 +105,29 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   const [aiResultPreview, setAiResultPreview] = useState<any>(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('personal');
+  const [uploadedTemplates, setUploadedTemplates] = useState<{ id: string; name: string; isPremium: boolean }[]>([]);
+  const allTemplates = [...CV_TEMPLATES, ...uploadedTemplates];
+
+  useEffect(() => {
+    let active = true;
+    void supabase.from('custom_html_templates')
+      .select('slug,name,is_premium,is_active')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.warn('Could not load custom CV templates:', error.message);
+          return;
+        }
+        setUploadedTemplates((data || []).map((tpl: any) => ({
+          id: `uploaded_${tpl.slug}`,
+          name: tpl.name,
+          isPremium: Boolean(tpl.is_premium),
+        })));
+      });
+    return () => { active = false; };
+  }, []);
 
   // Autosave
   useEffect(() => {
@@ -317,7 +341,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                   {saveStatus === 'saved' ? 'Autosaved' : 'Saving...'}
                 </span>
                 <span>•</span>
-                <span>Template: {CV_TEMPLATES.find(t => t.id === cv.template_id)?.name || 'Modern'}</span>
+                <span>Template: {allTemplates.find(t => t.id === cv.template_id)?.name || 'Modern'}</span>
               </div>
             </div>
           </div>
@@ -781,7 +805,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                   <select
                     value={cv.template_id}
                     onChange={(e) => {
-                      const tpl = CV_TEMPLATES.find(t => t.id === e.target.value);
+                      const tpl = allTemplates.find(t => t.id === e.target.value);
                       if (tpl?.isPremium && !canAccessTemplate(true)) {
                         triggerUpgradePrompt(`"${tpl.name}" is a Pro template. Upgrade to Pro to use it.`);
                         return;
@@ -790,9 +814,9 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                     }}
                     className="w-full p-2 text-xs border rounded-lg bg-white"
                   >
-                    {CV_TEMPLATES.map(t => (
+                    {allTemplates.map(t => (
                       <option key={t.id} value={t.id}>
-                        {t.name} {t.isPremium ? '(Pro)' : ''}
+                        {t.name} {t.isPremium ? '(Pro)' : ''} {t.id.startsWith('uploaded_') ? '· Custom HTML' : ''}
                       </option>
                     ))}
                   </select>
