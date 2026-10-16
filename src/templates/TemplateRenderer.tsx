@@ -31,6 +31,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   ).join('');
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<script\b[^>]*\/?\s*>/gi, '')
     .replace(/<(iframe|object|embed|form|input|button|textarea|select)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
     .replace(/<(iframe|object|embed|form|input|button|textarea|select)\b[^>]*\/?\s*>/gi, '')
     .replace(/<meta[^>]+http-equiv[^>]*>/gi, '')
@@ -64,6 +65,8 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   const cvSignature = JSON.stringify(cv);
   useEffect(() => {
     let active = true;
+    setLoadError('');
+    setHtml('');
     const slug = cv.template_id.replace(/^uploaded_/, '');
     void supabase.from('custom_html_templates').select('html_content').eq('slug', slug).eq('is_active', true).maybeSingle()
       .then(({ data, error }) => {
