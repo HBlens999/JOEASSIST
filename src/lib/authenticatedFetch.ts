@@ -25,5 +25,8 @@ export async function authenticatedFetch(input: RequestInfo | URL, init: Request
   }
   if (body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
-  return fetch(input, { ...init, body, headers });
+  const fetchInput = typeof input === 'string' && input.startsWith('/api/gemini/')
+    ? input.replace('/api/gemini/', '/api/ai/')
+    : input;
+  return fetch(fetchInput, { ...init, body, headers });
 }
