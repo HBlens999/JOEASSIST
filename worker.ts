@@ -319,6 +319,15 @@ export default {
       headers.set('Vary', 'Origin');
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     }
-    return env.ASSETS.fetch(request);
+    const assetResponse = await env.ASSETS.fetch(request);
+    const assetType = assetResponse.headers.get('content-type') || '';
+    if (request.method === 'GET' && assetType.includes('text/html')) {
+      const headers = new Headers(assetResponse.headers);
+      headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      headers.set('Pragma', 'no-cache');
+      headers.set('Expires', '0');
+      return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
+    }
+    return assetResponse;
   },
 };
