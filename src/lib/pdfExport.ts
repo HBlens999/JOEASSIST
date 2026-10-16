@@ -78,8 +78,8 @@ export async function exportElementToPDF(
     return true;
   } catch (error) {
     console.error('Error generating PDF:', error);
-    // Fallback: standard window.print if html2canvas meets cross-origin issues
-    window.print();
+    // Do not call window.print here: that would print the entire application UI.
+    // The calling document page can offer its dedicated print-only action instead.
     return false;
   }
 }
