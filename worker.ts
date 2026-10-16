@@ -8,7 +8,7 @@ interface Env {
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   GEMINI_API_KEY?: string;
-  OPENAI_API_KEY?: string;
+  AI?: { run(model: string, inputs: Record<string, unknown>): Promise<any> };
   PAYSTACK_SECRET_KEY?: string;
   PAYSTACK_PUBLIC_KEY?: string;
   VITE_PAYSTACK_PUBLIC_KEY?: string;
@@ -97,10 +97,10 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
 
   if (path === '/api/health' && method === 'GET') {
     const hasGemini = Boolean(env.GEMINI_API_KEY && !['your_gemini_api_key_here', 'MY_GEMINI_API_KEY'].includes(env.GEMINI_API_KEY));
-    const hasOpenAI = Boolean(env.OPENAI_API_KEY && !['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(env.OPENAI_API_KEY));
+    const hasWorkersAI = Boolean(env.AI && typeof env.AI.run === 'function');
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
     return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.1.0', services: {
-      model1: { configured: hasOpenAI, message: hasOpenAI ? 'Configured' : 'Model 1 server key is not configured' },
+      model1: { configured: hasWorkersAI, message: hasWorkersAI ? 'Cloudflare Workers AI binding is available' : 'Cloudflare Workers AI binding is missing from this deployment' },
       model2: { configured: hasGemini, message: hasGemini ? 'Configured' : 'Model 2 server key is not configured' },
       paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
       supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
@@ -159,28 +159,26 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
       }
       try {
         if (requestedModel === 'model1') {
-          const apiKey = env.OPENAI_API_KEY;
-          if (!apiKey || ['your_openai_api_key_here', 'MY_OPENAI_API_KEY'].includes(apiKey)) {
-            return json({ error: 'MODEL1_NOT_CONFIGURED', message: 'Model 1 is not configured yet. The administrator must add its server API key.' }, 503);
+          if (!env.AI || typeof env.AI.run !== 'function') {
+            return json({ error: 'MODEL1_NOT_CONFIGURED', message: 'Cloudflare Workers AI is not bound to this Worker. Add the AI binding and redeploy.' }, 503);
           }
-          const response = await fetch('https://api.openai.com/v1/responses', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'gpt-6-luna',
-              instructions: 'You are JOEASSIST, a professional career and business document assistant. Follow the user request carefully. Return only valid JSON matching the requested schema. Never invent credentials, employers, dates, qualifications, or metrics.',
-              input: prompt,
-              text: { format: { type: 'json_object' } }
-            })
+          const result: any = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+            prompt: `You are JOEASSIST, a professional career and business document assistant. Follow the request carefully. Never invent credentials, employers, dates, qualifications, or metrics. Return only valid JSON matching the schema requested below. Do not include Markdown fences or explanations.\n\nREQUEST:\n${prompt}`,
+            max_tokens: 3000,
+            temperature: 0.2
           });
-          const payload: any = await response.json();
-          if (!response.ok) {
-            console.error('Model 1 request failed:', response.status, payload?.error?.type || payload?.error?.code || 'provider_error');
-            return json({ error: 'MODEL_REQUEST_FAILED', message: 'Model 1 could not complete this request. Check the server API configuration or try Model 2.' }, 502);
+          const output = typeof result?.response === 'string' ? result.response : typeof result?.output === 'string' ? result.output : '';
+          if (!output.trim()) {
+            console.error('Cloudflare Workers AI returned no text:', JSON.stringify(result).slice(0, 500));
+            return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 1 returned an empty response. Please try again or choose Model 2.' }, 502);
           }
-          const output = payload.output_text || payload.output?.flatMap((item: any) => item.content || []).find((item: any) => item.type === 'output_text')?.text;
-          if (!output) return json({ error: 'EMPTY_AI_RESPONSE', message: 'The selected model returned an empty response. Please try again.' }, 502);
-          return json({ success: true, data: JSON.parse(output) });
+          const cleaned = output.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+          try {
+            return json({ success: true, data: JSON.parse(cleaned) });
+          } catch {
+            console.error('Cloudflare Workers AI returned invalid JSON:', cleaned.slice(0, 300));
+            return json({ error: 'INVALID_AI_JSON', message: 'Model 1 returned an unreadable response. Please try again or choose Model 2.' }, 502);
+          }
         }
         const ai = getAI(env);
         if (!ai) return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. The administrator must add its server API key.' }, 503);
