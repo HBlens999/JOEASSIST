@@ -6,10 +6,10 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   signIn: (email: string, pass: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, pass: string, fullName: string) => Promise<{ error: string | null; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, pass: string, firstName: string, lastName: string, phone: string) => Promise<{ error: string | null; needsEmailConfirmation?: boolean }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'avatar_url' | 'company_name'>>) => Promise<{ error: string | null }>;
+  updateProfile: (updates: Partial<Pick<UserProfile, 'first_name' | 'last_name' | 'full_name' | 'phone' | 'avatar_url' | 'company_name'>>) => Promise<{ error: string | null }>;
   isAdmin: boolean;
 }
 
@@ -19,6 +19,8 @@ function toUserProfile(authUser: any, profile: any): UserProfile {
   return {
     id: authUser.id,
     email: authUser.email || profile?.email || '',
+    first_name: profile?.first_name || authUser.user_metadata?.first_name || '',
+    last_name: profile?.last_name || authUser.user_metadata?.last_name || '',
     full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
     phone: profile?.phone || '',
     avatar_url: profile?.avatar_url || '',
@@ -45,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadUser = async (authUser: any) => {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .select('id,email,first_name,last_name,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
         .eq('id', authUser.id)
         .maybeSingle();
 
@@ -100,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data.user) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .select('id,email,first_name,last_name,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
         .eq('id', data.user.id)
         .maybeSingle();
       if (profileError) console.error('Profile lookup after sign-in failed:', profileError.message);
@@ -109,20 +111,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: null };
   };
 
-  const signUp = async (email: string, pass: string, fullName: string) => {
+  const signUp = async (email: string, pass: string, firstName: string, lastName: string, phone: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    if (!fullName.trim()) return { error: 'Please enter your full name.' };
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const cleanPhone = phone.trim();
+    const fullName = [cleanFirstName, cleanLastName].filter(Boolean).join(' ');
+    if (!cleanFirstName || !cleanLastName) return { error: 'Please enter both your first name and last name.' };
+    if (!cleanPhone) return { error: 'Please enter your phone number.' };
     if (pass.length < 8) return { error: 'Use a password with at least 8 characters.' };
 
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: pass,
-      options: { data: { full_name: fullName.trim() } },
+      options: {
+        emailRedirectTo: redirectTo,
+        data: {
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
+          full_name: fullName,
+          phone: cleanPhone,
+        },
+      },
     });
     if (error) return { error: error.message };
 
-    // Supabase may require email confirmation. Do not pretend the user is
-    // signed in when no session was issued.
+    // With confirmation enabled, Supabase sends the user to the production
+    // origin supplied above instead of falling back to localhost:3000.
     if (!data.session) {
       return { error: null, needsEmailConfirmation: true };
     }
@@ -130,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data.user) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+        .select('id,email,first_name,last_name,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
         .eq('id', data.user.id)
         .maybeSingle();
       if (profileError) console.error('Profile lookup after sign-up failed:', profileError.message);
@@ -158,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile: AuthContextType['updateProfile'] = async (updates) => {
     if (!user) return { error: 'Please sign in first.' };
     const safeUpdates = {
+      ...(updates.first_name !== undefined ? { first_name: updates.first_name } : {}),
+      ...(updates.last_name !== undefined ? { last_name: updates.last_name } : {}),
       ...(updates.full_name !== undefined ? { full_name: updates.full_name } : {}),
       ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
       ...(updates.avatar_url !== undefined ? { avatar_url: updates.avatar_url } : {}),
@@ -168,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .from('profiles')
       .update(safeUpdates)
       .eq('id', user.id)
-      .select('id,email,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
+      .select('id,email,first_name,last_name,full_name,phone,avatar_url,role,subscription_tier,subscription_status,company_name,created_at,updated_at')
       .single();
 
     if (error) return { error: error.message };
