@@ -172,7 +172,7 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
             console.error('Cloudflare Workers AI returned no text:', JSON.stringify(result).slice(0, 500));
             return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 1 returned an empty response. Please try again or choose Model 2.' }, 502);
           }
-          const cleaned = output.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+          const cleaned = output.trim().replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
           try {
             return json({ success: true, data: JSON.parse(cleaned) });
           } catch {
