@@ -16,6 +16,29 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
   const { triggerUpgradePrompt, currentTier } = useEntitlements();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [aiModel, setAiModel] = useState<'model1' | 'model2'>(() => {
+    if (typeof window === 'undefined') return 'model2';
+    return window.localStorage.getItem('joeassist_ai_model') === 'model1' ? 'model1' : 'model2';
+  });
+  const handleAIModelChange = (value: 'model1' | 'model2') => {
+    setAiModel(value);
+    window.localStorage.setItem('joeassist_ai_model', value);
+  };
+  const aiModelSelector = (
+    <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+      <span className="whitespace-nowrap">AI Model</span>
+      <select
+        aria-label="Choose AI model"
+        value={aiModel}
+        onChange={(e) => handleAIModelChange(e.target.value as 'model1' | 'model2')}
+        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="model1">Model 1</option>
+        <option value="model2">Model 2</option>
+      </select>
+    </label>
+  );
 
   const navItems = [
     { id: 'home', label: 'Home' },
@@ -74,6 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
 
           {/* Right Action buttons */}
           <div className="hidden sm:flex items-center space-x-3">
+            {aiModelSelector}
             {/* Subscription Badge */}
             {user && (
               <span 
@@ -197,6 +221,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
         <div className="sm:hidden border-t border-gray-100 bg-white px-4 pt-3 pb-6 space-y-2">
+          <div className="pb-2">{aiModelSelector}</div>
           {navItems.map((item) => (
             <button
               key={item.id}
