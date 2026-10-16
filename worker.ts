@@ -146,7 +146,27 @@ Generate a structured CV draft in JSON. Do NOT invent companies, institutions, o
           prompt = `You are a senior ATS scanning engineer and corporate recruiter. Evaluate this CV against the job description. TARGET JOB TITLE: "${body.targetJobTitle || 'Not specified'}". JOB DESCRIPTION:\n${body.jobDescription}\nCV CONTENT:\n${typeof body.cvContent === 'string' ? body.cvContent : JSON.stringify(body.cvContent)}\nProvide overall score 0-100, category scores, matched and missing keywords, warnings, actionable recommendations without fabricating qualifications, and 3 tailored bullet suggestions. Return JSON {"overall_score":78,"keyword_score":75,"experience_score":80,"education_score":85,"formatting_score":90,"matched_keywords":[],"missing_keywords":[],"warnings":[],"recommendations":[],"tailored_suggestions":[]}`;
           break;
         case '/api/gemini/cover-letter':
-          prompt = `Write a natural, professional cover letter. Target Role: "${body.jobTitle || ''}". Target Company: "${body.companyName || ''}". Hiring Manager: "${body.hiringManager || 'Hiring Team'}". Job Description: ${body.jobDescription || 'Standard professional role'}. Candidate Background: ${body.userExperience || 'Experienced professional with relevant skills'}. Tone: "${body.tone || 'confident and professional'}". Length: "${body.length || 'medium (3-4 paragraphs)'}". Do not invent previous employers or credentials. Return JSON {"title":"Cover Letter - ${body.companyName || ''}","content":"Full letter body with clear paragraphs"}.`;
+          if (!body.applicantName || !body.applicantPhone || !body.applicantAddress || !body.jobTitle) {
+            return json({ error: 'COVER_LETTER_DETAILS_REQUIRED', message: 'Please provide your name, phone number, address, and the job title before generating the letter.' }, 400);
+          }
+          prompt = `Write only the BODY PARAGRAPHS of a formal job application letter for JOEASSIST. Do not include the writer's address, date, receiver's address, salutation, subject line, closing, signature, name, or phone number because the website formats those separately.
+Applicant name: "${String(body.applicantName || '').slice(0, 180)}"
+Applicant email: "${String(body.applicantEmail || '').slice(0, 254)}"
+Applicant phone: "${String(body.applicantPhone || '').slice(0, 80)}"
+Applicant address: "${String(body.applicantAddress || '').slice(0, 500)}"
+Date selected by applicant: "${String(body.letterDate || '')}"
+Receiver / organisation: "${String(body.recipientName || body.hiringManager || '').slice(0, 180)}"
+Receiver title / department: "${String(body.recipientTitle || '').slice(0, 180)}"
+Receiver address: "${String(body.recipientAddress || '').slice(0, 500)}"
+Salutation chosen: "${String(body.salutation || 'Dear Hiring Manager,').slice(0, 100)}"
+Subject: "${String(body.subjectLine || '').slice(0, 250)}"
+Job title: "${String(body.jobTitle || '').slice(0, 180)}"
+Organisation: "${String(body.companyName || body.recipientName || '').slice(0, 180)}"
+Candidate's real background: "${String(body.userExperience || '').slice(0, 6000)}"
+Job advert / requirements: "${String(body.jobDescription || '').slice(0, 6000)}"
+Tone: "${String(body.tone || 'Professional and formal').slice(0, 100)}"
+Length: "${String(body.length || 'Medium (3-4 paragraphs)').slice(0, 100)}"
+Write a natural, respectful, specific application letter body that connects only the supplied experience to the role and employer. Never invent degrees, employers, dates, skills, awards, achievements, or metrics. If the candidate provides limited experience, focus honestly on transferable skills, motivation, willingness to learn, and relevant strengths. Do not mention missing information. Produce the requested length. Return JSON only in this exact shape: {"title":"string","content":"paragraph one\\n\\nparagraph two\\n\\nparagraph three"}. The content value must contain body paragraphs only.`;
           break;
         case '/api/gemini/parse-cv-text':
           if (!body.rawText || String(body.rawText).trim().length < 20) return json({ error: 'Please provide readable CV text to extract.' }, 400);
