@@ -340,7 +340,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 Host: <code>https://ooalsbdkknznrnldrypd.supabase.co</code>
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                RLS policies configured for all 20 entities.
+                RLS policies configured for 21 entities, including uploaded CV templates.
               </div>
             </div>
           </div>
@@ -494,7 +494,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
         <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-4">
           <div className="flex justify-between items-center border-b pb-4">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">Database Migration (20 Entities & RLS Policies)</h3>
+              <h3 className="font-bold text-gray-900 text-base">Database Migration (21 Entities & RLS Policies)</h3>
               <p className="text-xs text-gray-500">
                 File: <code>supabase/migrations/20261015000001_initial_schema.sql</code>
               </p>
@@ -513,7 +513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
             The migration creates the tables, indexes, constraints, and Row Level Security policies for:
             profiles, user_preferences, cv_documents, cv_versions, cv_templates, cover_letters, ats_audits, 
             invoices, receipts, proposals, delivery_notes, subscriptions, payments, payment_webhook_events, 
-            user_entitlements, ai_usage, usage_limits, admin_settings, support_requests, and audit_logs.
+            user_entitlements, ai_usage, usage_limits, admin_settings, support_requests, audit_logs, and custom_html_templates.
           </p>
 
           <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto max-h-96">
