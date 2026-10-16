@@ -9,7 +9,21 @@ export async function authenticatedFetch(input: RequestInfo | URL, init: Request
 
   const headers = new Headers(init.headers || {});
   headers.set('Authorization', `Bearer ${token}`);
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  let body = init.body;
+  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+  if (body && typeof body === 'string' && requestUrl.includes('/api/gemini/')) {
+    try {
+      const parsedBody = JSON.parse(body);
+      const selectedModel = typeof window !== 'undefined'
+        ? window.localStorage.getItem('joeassist_ai_model')
+        : null;
+      parsedBody.model = selectedModel === 'model1' ? 'model1' : 'model2';
+      body = JSON.stringify(parsedBody);
+    } catch {
+      // Leave non-JSON request bodies untouched.
+    }
+  }
+  if (body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, body, headers });
 }
