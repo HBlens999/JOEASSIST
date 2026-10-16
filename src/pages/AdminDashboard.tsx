@@ -273,10 +273,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
       {activeAdminTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {/* Gemini AI Status */}
+            {/* Cloudflare Workers AI Status */}
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-500 uppercase">AI Model 1 · OpenAI</span>
+                <span className="text-xs font-bold text-gray-500 uppercase">AI Model 1 · Cloudflare AI</span>
                 <Sparkles className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex items-center gap-2">
@@ -286,10 +286,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Model: <strong>GPT-6 Luna</strong> · shown to users as Model 1
+                Model: <strong>Llama 3.1 8B Instruct</strong> · Cloudflare Workers AI · shown to users as Model 1
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                Set the server-side Cloudflare secret <code>OPENAI_API_KEY</code>. Never add it to frontend code.
+                Uses the Cloudflare Workers AI binding. No separate model API key is required.
               </div>
             </div>
 
@@ -309,7 +309,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 Model: <strong>Gemini 2.5 Flash</strong> · shown to users as Model 2
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                Set the server-side Cloudflare secret <code>GEMINI_API_KEY</code>. Never add it to frontend code.
+                If this still says pending, confirm <code>GEMINI_API_KEY</code> is saved as a Secret on the <strong>joeassist</strong> Worker and click <strong>Deploy</strong>. Never add it to frontend code.
               </div>
             </div>
 
