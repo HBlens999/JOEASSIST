@@ -157,6 +157,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onS
 
   // Filter templates by category and search
   const allTemplates = [...CV_TEMPLATES, ...uploadedTemplates];
+  const categoryOptions = Array.from(new Set([...TEMPLATE_CATEGORIES, ...uploadedTemplates.map(t => t.category)]));
   const filteredTemplates = allTemplates.filter((tpl) => {
     const matchesCategory = selectedCategory === 'All' || tpl.category === selectedCategory;
     const matchesSearch = 
@@ -214,7 +215,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onS
 
         {/* Category Pills (Horizontal scrollable) */}
         <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin">
-          {TEMPLATE_CATEGORIES.map((cat) => (
+          {categoryOptions.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
