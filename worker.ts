@@ -242,8 +242,48 @@ Write a natural, respectful, specific application letter body that connects only
         });
         return json({ success: true, data: JSON.parse(result.output_text || '{}'), model: GEMINI_MODEL });
       } catch (error: any) {
-        console.error('AI request failed:', error?.message || error);
-        return json({ error: 'AI_REQUEST_FAILED', message: 'The selected model could not complete this request. Please try again or choose the other model.' }, 500);
+        const errorMessage = String(error?.message || error || 'Unknown AI provider error');
+        const providerStatus = Number(error?.status || error?.statusCode || error?.response?.status || 0);
+        const isTemporaryCapacityError =
+          providerStatus === 503 ||
+          /\\b503\\b|high demand|temporarily unavailable|overloaded/i.test(errorMessage);
+        const isRateLimitError = providerStatus === 429 || /\\b429\\b|rate.?limit|quota exceeded/i.test(errorMessage);
+
+        if (isTemporaryCapacityError) {
+          console.error('Gemini temporarily unavailable:', JSON.stringify({
+            model: GEMINI_MODEL,
+            status: 503,
+            message: errorMessage.slice(0, 500)
+          }));
+          return json({
+            error: 'GEMINI_TEMPORARILY_UNAVAILABLE',
+            message: 'Google Gemini is temporarily experiencing high demand. Please wait a little and try again, or switch to Model 1.',
+            model: GEMINI_MODEL
+          }, 503);
+        }
+
+        if (isRateLimitError) {
+          console.error('AI provider rate limit:', JSON.stringify({
+            model: GEMINI_MODEL,
+            status: 429,
+            message: errorMessage.slice(0, 500)
+          }));
+          return json({
+            error: 'AI_RATE_LIMITED',
+            message: 'The selected AI model is temporarily rate-limited. Please wait before trying again, or switch to Model 1.',
+            model: GEMINI_MODEL
+          }, 429);
+        }
+
+        console.error('AI request failed:', JSON.stringify({
+          model: GEMINI_MODEL,
+          status: providerStatus || null,
+          message: errorMessage.slice(0, 700)
+        }));
+        return json({
+          error: 'AI_REQUEST_FAILED',
+          message: 'The selected model could not complete this request. Please try again or choose the other model.'
+        }, providerStatus >= 400 && providerStatus < 600 ? 502 : 500);
       }
     }
 
