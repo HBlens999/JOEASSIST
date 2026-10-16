@@ -247,8 +247,8 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === 'GEMINI_API_KEY_MISSING') {
-          setAIError('Gemini API key is not configured in the server secrets yet. Once configured, AI will automatically respond.');
+        if (['MODEL1_NOT_CONFIGURED', 'MODEL2_NOT_CONFIGURED', 'GEMINI_API_KEY_MISSING'].includes(data.error)) {
+          setAIError('The selected AI model is not configured yet. Choose the other model or ask the administrator to add its server API key.');
         } else {
           setAIError(data.error || 'AI generation failed.');
         }
