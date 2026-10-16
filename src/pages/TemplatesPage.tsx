@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { CV_TEMPLATES, TEMPLATE_CATEGORIES } from '../templates/templateList';
 import { CVTemplateMeta, CVDocument } from '../types/cv';
 import { TemplateRenderer } from '../templates/TemplateRenderer';
@@ -111,14 +112,52 @@ const PREVIEW_CV: CVDocument = {
   }
 };
 
+interface UploadedTemplateRow {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  is_premium: boolean;
+  is_active: boolean;
+}
+
 export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onSelectTemplate }) => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [previewTemplate, setPreviewTemplate] = useState<CVTemplateMeta | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<(CVTemplateMeta & { isCustom?: boolean }) | null>(null);
+  const [uploadedTemplates, setUploadedTemplates] = useState<(CVTemplateMeta & { isCustom?: boolean })[]>([]);
   const { canAccessTemplate, triggerUpgradePrompt } = useEntitlements();
 
+  useEffect(() => {
+    let active = true;
+    void supabase.from('custom_html_templates')
+      .select('slug,name,category,description,is_premium,is_active')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.warn('Could not load custom HTML templates:', error.message);
+          return;
+        }
+        setUploadedTemplates((data || []).map((tpl: any) => ({
+          id: `uploaded_${tpl.slug}`,
+          name: tpl.name,
+          category: tpl.category || 'Professional',
+          description: tpl.description || 'Custom HTML CV template',
+          isPremium: Boolean(tpl.is_premium),
+          layout: 'single-column' as const,
+          recommendedFor: [],
+          tags: ['Custom HTML'],
+          isCustom: true,
+        })));
+      });
+    return () => { active = false; };
+  }, []);
+
   // Filter templates by category and search
-  const filteredTemplates = CV_TEMPLATES.filter((tpl) => {
+  const allTemplates = [...CV_TEMPLATES, ...uploadedTemplates];
+  const filteredTemplates = allTemplates.filter((tpl) => {
     const matchesCategory = selectedCategory === 'All' || tpl.category === selectedCategory;
     const matchesSearch = 
       tpl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -143,7 +182,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onS
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
-          32 Distinct Professional Layouts
+          {allTemplates.length} Professional Layouts
         </span>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
           CV Template Gallery
@@ -169,7 +208,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onS
           </div>
 
           <div className="text-xs text-gray-500 font-semibold self-end sm:self-center">
-            Showing {filteredTemplates.length} of {CV_TEMPLATES.length} templates
+            Showing {filteredTemplates.length} of {allTemplates.length} templates
           </div>
         </div>
 
@@ -219,6 +258,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ setCurrentTab, onS
                     <span className="px-2 py-0.5 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold rounded-md uppercase tracking-wider">
                       {template.category}
                     </span>
+                    {template.isCustom && <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-md uppercase tracking-wider">Custom HTML</span>}
                     {template.isPremium && (
                       <span className="px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-md uppercase tracking-wider">
                         Pro
