@@ -236,7 +236,7 @@ export const CVUploadPage: React.FC<CVUploadPageProps> = ({ setCurrentTab, onExt
           className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4" />
-          {isLoading ? 'Extracting with Gemini AI...' : 'Parse and Structure into CV Builder'}
+          {isLoading ? 'Extracting with selected model…' : 'Parse and Structure into CV Builder'}
         </button>
       </div>
 
