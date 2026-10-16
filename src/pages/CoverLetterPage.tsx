@@ -36,12 +36,14 @@ Warm regards,
 Joseph Chiemezie`);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const handleGenerate = async () => {
     if (!checkCanUseAI()) return;
     setIsGenerating(true);
+    setAiError('');
 
     try {
       const res = await authenticatedFetch('/api/gemini/cover-letter', {
@@ -59,12 +61,20 @@ Joseph Chiemezie`);
       });
 
       const data = await res.json();
-      if (res.ok && data.success && data.data.content) {
+      if (!res.ok) {
+        setAiError(data.message || (['MODEL1_NOT_CONFIGURED', 'MODEL2_NOT_CONFIGURED'].includes(data.error)
+          ? 'The selected AI model is not configured yet. Choose the other model or ask the administrator to add its server API key.'
+          : 'The selected model could not generate a cover letter. Please try again.'));
+        return;
+      }
+      if (data.success && data.data.content) {
         setLetterContent(data.data.content);
         recordAIUsage();
+      } else {
+        setAiError('The selected model returned an empty result. Please try again.');
       }
     } catch {
-      // Keep default
+      setAiError('Could not connect to the selected AI model. Please check your connection and try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -186,7 +196,7 @@ Joseph Chiemezie`);
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4" />
-            {isGenerating ? 'Drafting with Gemini AI...' : 'Generate Cover Letter Draft'}
+            {isGenerating ? 'Drafting with selected model…' : 'Generate Cover Letter Draft'}
           </button>
         </div>
 
