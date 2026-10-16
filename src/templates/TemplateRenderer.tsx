@@ -30,27 +30,27 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     `<div style="margin:5px 0"><strong>${escapeTemplateValue(group.category)}:</strong> ${(group.items || []).map(escapeTemplateValue).join(', ')}</div>`
   ).join('');
   let html = rawHtml
-    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi, '')
-    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, '')
-    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\\b[^>]*\\/?\\s*>/gi, '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\b[^>]*\/?\s*>/gi, '')
     .replace(/<meta[^>]+http-equiv[^>]*>/gi, '')
-    .replace(/\\s(on[a-z]+|srcdoc)\\s*=\\s*(".*?"|'.*?'|[^\\s>]+)/gi, '')
-    .replace(/(href|src)\\s*=\\s*(["'])\\s*javascript:[\\s\\S]*?\\2/gi, '$1="#"')
-    .replace(/@import\\s+[^;]+;?/gi, '')
-    .replace(/url\\(\\s*(['"]?)javascript:[^)]*\\)/gi, '');
+    .replace(/\s(on[a-z]+|srcdoc)\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, '')
+    .replace(/(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '$1="#"')
+    .replace(/@import\s+[^;]+;?/gi, '')
+    .replace(/url\(\s*(['"]?)javascript:[^)]*\)/gi, '');
   const replacements: Record<string, string> = {
     fullName: escapeTemplateValue(p.fullName || 'Your Name'),
     professionalTitle: escapeTemplateValue(p.professionalTitle || 'Professional Title'),
     email: escapeTemplateValue(p.email),
     phone: escapeTemplateValue(p.phone),
     location: escapeTemplateValue(p.location),
-    summary: escapeTemplateValue(cv.summary).replace(/\\n/g, '<br>'),
+    summary: escapeTemplateValue(cv.summary).replace(/\n/g, '<br>'),
     experience,
     education,
     skills,
   };
   for (const [key, value] of Object.entries(replacements)) {
-    html = html.replace(new RegExp('\\\\{\\\\{\\\\s*' + key + '\\\\s*\\\\}\\\\}', 'gi'), value);
+    html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
   }
   const security = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: https:; style-src \'unsafe-inline\' https:; font-src data: https:; base-uri \'none\'; form-action \'none\'">';
   if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}`);
@@ -61,6 +61,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
 const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; printMode: boolean }> = ({ cv, scale, printMode }) => {
   const [html, setHtml] = useState('');
   const [loadError, setLoadError] = useState('');
+  const cvSignature = JSON.stringify(cv);
   useEffect(() => {
     let active = true;
     const slug = cv.template_id.replace(/^uploaded_/, '');
@@ -71,7 +72,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
         else setHtml(prepareUploadedHtml(data.html_content, cv));
       });
     return () => { active = false; };
-  }, [cv]);
+  }, [cv.template_id, cvSignature]);
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">Loading uploaded HTML template…</div>;
   return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top center', overflow: 'hidden' }}>
