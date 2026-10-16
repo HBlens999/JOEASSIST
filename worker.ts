@@ -190,17 +190,34 @@ Write a natural, respectful, specific application letter body that connects only
               },
               { role: 'user', content: prompt }
             ],
-            max_completion_tokens: 3000,
+            max_completion_tokens: 1800,
             temperature: 0.2,
-            reasoning_effort: 'low',
-            chat_template_kwargs: { enable_thinking: false }
+            // Explicitly disable reasoning tokens so GLM spends its budget on the visible answer.
+            reasoning_effort: null,
+            chat_template_kwargs: { enable_thinking: false, clear_thinking: true }
           });
-          const output = typeof result?.response === 'string' ? result.response : typeof result?.output === 'string' ? result.output : '';
-          if (!output.trim()) {
-            console.error('Cloudflare Workers AI returned no text:', JSON.stringify(result).slice(0, 500));
-            return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 1 returned an empty response. Please try again or choose Model 2.' }, 502);
+          // Workers AI model responses can differ by endpoint/runtime. Accept the documented
+          // binding response as well as OpenAI-compatible chat-completion shapes.
+          const candidateOutput =
+            (typeof result?.response === 'string' ? result.response : '') ||
+            (typeof result?.output === 'string' ? result.output : '') ||
+            (typeof result?.choices?.[0]?.message?.content === 'string' ? result.choices[0].message.content : '') ||
+            (typeof result?.choices?.[0]?.text === 'string' ? result.choices[0].text : '') ||
+            (typeof result?.content === 'string' ? result.content : '') ||
+            (typeof result?.message?.content === 'string' ? result.message.content : '');
+          const output = candidateOutput.trim();
+          if (!output) {
+            console.error('Cloudflare Workers AI returned no visible text:', JSON.stringify({
+              keys: result && typeof result === 'object' ? Object.keys(result) : [],
+              responseType: typeof result?.response,
+              responseLength: typeof result?.response === 'string' ? result.response.length : null,
+              finishReason: result?.choices?.[0]?.finish_reason || result?.finish_reason || null,
+              usage: result?.usage || null,
+              error: result?.error || null
+            }).slice(0, 700));
+            return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 1 did not return usable text. Please retry once or choose Model 2.' }, 502);
           }
-          const cleaned = output.trim().replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
+          const cleaned = output.replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
           try {
             return json({ success: true, data: JSON.parse(cleaned) });
           } catch {
