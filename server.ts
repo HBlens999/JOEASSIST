@@ -245,7 +245,7 @@ app.get('/api/health', (req: Request, res: Response) => {
     services: {
       gemini: {
         configured: hasGemini,
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         message: hasGemini ? 'Connected and operational' : 'GEMINI_API_KEY is not configured in server environment',
       },
       paystack: {
@@ -332,7 +332,7 @@ CRITICAL RULES:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -372,7 +372,7 @@ Return JSON:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
@@ -409,7 +409,7 @@ Return JSON:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
@@ -471,7 +471,7 @@ Return JSON:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
@@ -520,7 +520,7 @@ Requirements:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
@@ -604,7 +604,7 @@ Return JSON with this exact structure:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
@@ -648,7 +648,7 @@ Return JSON:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });
