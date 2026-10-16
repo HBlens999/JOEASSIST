@@ -850,7 +850,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                 <Sparkles className="w-5 h-5 animate-pulse" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 text-base">Gemini AI Career Strategist</h3>
+                <h3 className="font-bold text-gray-900 text-base">AI Career Strategist</h3>
                 <p className="text-xs text-gray-500">Transform your real background into an executive format</p>
               </div>
             </div>
@@ -935,7 +935,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isAILoading ? 'Processing with Gemini...' : 'Generate with AI'}
+                  {isAILoading ? 'Processing with selected model…' : 'Generate with AI'}
                 </button>
               )}
             </div>
