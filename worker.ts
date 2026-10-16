@@ -246,8 +246,8 @@ Write a natural, respectful, specific application letter body that connects only
         const providerStatus = Number(error?.status || error?.statusCode || error?.response?.status || 0);
         const isTemporaryCapacityError =
           providerStatus === 503 ||
-          /\\b503\\b|high demand|temporarily unavailable|overloaded/i.test(errorMessage);
-        const isRateLimitError = providerStatus === 429 || /\\b429\\b|rate.?limit|quota exceeded/i.test(errorMessage);
+          /\b503\b|high demand|temporarily unavailable|overloaded/i.test(errorMessage);
+        const isRateLimitError = providerStatus === 429 || /\b429\b|rate.?limit|quota exceeded/i.test(errorMessage);
 
         if (isTemporaryCapacityError) {
           console.error('Gemini temporarily unavailable:', JSON.stringify({
