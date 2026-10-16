@@ -171,7 +171,7 @@ export const CoverLetterPage: React.FC<CoverLetterPageProps> = () => {
       addWrapped(applicantName.trim() || 'Your full name', pageWidth - margin, contentWidth, 5, 'right');
       pdf.setFont('times', 'normal');
       [applicantPhone, applicantEmail, applicantAddress].filter(Boolean).forEach(value => {
-        String(value).split(/\\r?\\n/).forEach(line => addWrapped(line, pageWidth - margin, contentWidth, 5, 'right'));
+        String(value).split(/\r?\n/).forEach(line => addWrapped(line, pageWidth - margin, contentWidth, 5, 'right'));
       });
       if (letterDate) {
         y += 2;
@@ -184,7 +184,7 @@ export const CoverLetterPage: React.FC<CoverLetterPageProps> = () => {
       if (recipientName.trim()) addWrapped(recipientName.trim(), margin, contentWidth, 5);
       pdf.setFont('times', 'normal');
       if (recipientTitle.trim()) addWrapped(recipientTitle.trim(), margin, contentWidth, 5);
-      if (recipientAddress.trim()) recipientAddress.split(/\\r?\\n/).forEach(line => addWrapped(line, margin, contentWidth, 5));
+      if (recipientAddress.trim()) recipientAddress.split(/\r?\n/).forEach(line => addWrapped(line, margin, contentWidth, 5));
 
       y += 10;
       addWrapped(salutation.trim(), margin, contentWidth, 6);
@@ -200,9 +200,9 @@ export const CoverLetterPage: React.FC<CoverLetterPageProps> = () => {
       y += 5;
       pdf.setFont('times', 'normal');
       pdf.setFontSize(11);
-      const paragraphs = letterContent.trim().split(/\\n\\s*\\n/).filter(Boolean);
+      const paragraphs = letterContent.trim().split(/\n\s*\n/).filter(Boolean);
       for (const paragraph of paragraphs) {
-        const lines = pdf.splitTextToSize(paragraph.replace(/\\n/g, ' '), contentWidth) as string[];
+        const lines = pdf.splitTextToSize(paragraph.replace(/\n/g, ' '), contentWidth) as string[];
         for (const line of lines) {
           if (y > pageHeight - 24) { pdf.addPage(); y = 22; }
           pdf.text(line, margin, y);
@@ -248,9 +248,9 @@ export const CoverLetterPage: React.FC<CoverLetterPageProps> = () => {
       return;
     }
     const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const lines = (value: string) => esc(value).replace(/\\r?\\n/g, '<br>');
+    const lines = (value: string) => esc(value).replace(/\r?\n/g, '<br>');
     const paragraphHtml = letterContent.trim()
-      ? letterContent.trim().split(/\\n\\s*\\n/).map(p => `<p>${lines(p).replace(/\\n/g, '<br>')}</p>`).join('')
+      ? letterContent.trim().split(/\n\s*\n/).map(p => `<p>${lines(p).replace(/\n/g, '<br>')}</p>`).join('')
       : '<p></p>';
     printWindow.document.open();
     printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Cover Letter</title><style>
