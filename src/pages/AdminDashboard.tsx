@@ -302,14 +302,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
               <div className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${systemStatus?.services?.model2?.configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                 <span className="font-bold text-sm text-gray-900">
-                  {systemStatus?.services?.model2?.configured ? 'Configured' : 'API key pending in Cloudflare'}
+                  {systemStatus?.services?.model2?.configured ? 'Configured' : 'Secret not visible to Worker'}
                 </span>
               </div>
               <p className="text-xs text-gray-500">
                 Model: <strong>Gemini 2.5 Flash</strong> · shown to users as Model 2
               </p>
               <div className="text-[11px] text-gray-500 p-2.5 bg-gray-50 rounded-lg">
-                If this still says pending, confirm <code>GEMINI_API_KEY</code> is saved as a Secret on the <strong>joeassist</strong> Worker and click <strong>Deploy</strong>. Never add it to frontend code.
+                The running Worker cannot see <code>GEMINI_API_KEY</code>. In Cloudflare, open Workers & Pages → <strong>joeassist</strong> → Settings → Variables and Secrets. Confirm the exact name and Secret type, then click <strong>Deploy</strong>. Never add it to frontend code.
               </div>
             </div>
 
