@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { CVDocument } from '../types/cv';
 import { getCustomTemplate } from './custom/registry';
 import { 
@@ -12,7 +13,75 @@ interface TemplateRendererProps {
   printMode?: boolean;
 }
 
+
+function escapeTemplateValue(value: unknown): string {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
+  const p = cv.personal_info || ({} as CVDocument['personal_info']);
+  const experience = (cv.work_experience || []).map(item =>
+    `<section style="margin:12px 0"><h3>${escapeTemplateValue(item.jobTitle)} · ${escapeTemplateValue(item.company)}</h3><p>${escapeTemplateValue(item.startDate)} – ${escapeTemplateValue(item.isCurrent ? 'Present' : item.endDate)}</p><ul>${(item.bulletPoints || []).map(point => `<li>${escapeTemplateValue(point)}</li>`).join('')}</ul></section>`
+  ).join('');
+  const education = (cv.education || []).map(item =>
+    `<section style="margin:8px 0"><strong>${escapeTemplateValue(item.degree)} ${escapeTemplateValue(item.fieldOfStudy)}</strong><div>${escapeTemplateValue(item.institution)} · ${escapeTemplateValue(item.startDate)} – ${escapeTemplateValue(item.endDate)}</div></section>`
+  ).join('');
+  const skills = (cv.skills || []).map(group =>
+    `<div style="margin:5px 0"><strong>${escapeTemplateValue(group.category)}:</strong> ${(group.items || []).map(escapeTemplateValue).join(', ')}</div>`
+  ).join('');
+  let html = rawHtml
+    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi, '')
+    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, '')
+    .replace(/<(iframe|object|embed|form|input|button|textarea|select)\\b[^>]*\\/?\\s*>/gi, '')
+    .replace(/<meta[^>]+http-equiv[^>]*>/gi, '')
+    .replace(/\\s(on[a-z]+|srcdoc)\\s*=\\s*(".*?"|'.*?'|[^\\s>]+)/gi, '')
+    .replace(/(href|src)\\s*=\\s*(["'])\\s*javascript:[\\s\\S]*?\\2/gi, '$1="#"')
+    .replace(/@import\\s+[^;]+;?/gi, '')
+    .replace(/url\\(\\s*(['"]?)javascript:[^)]*\\)/gi, '');
+  const replacements: Record<string, string> = {
+    fullName: escapeTemplateValue(p.fullName || 'Your Name'),
+    professionalTitle: escapeTemplateValue(p.professionalTitle || 'Professional Title'),
+    email: escapeTemplateValue(p.email),
+    phone: escapeTemplateValue(p.phone),
+    location: escapeTemplateValue(p.location),
+    summary: escapeTemplateValue(cv.summary).replace(/\\n/g, '<br>'),
+    experience,
+    education,
+    skills,
+  };
+  for (const [key, value] of Object.entries(replacements)) {
+    html = html.replace(new RegExp('\\\\{\\\\{\\\\s*' + key + '\\\\s*\\\\}\\\\}', 'gi'), value);
+  }
+  const security = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: https:; style-src \'unsafe-inline\' https:; font-src data: https:; base-uri \'none\'; form-action \'none\'">';
+  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}`);
+  else html = `<!doctype html><html><head>${security}<meta charset="utf-8"></head><body>${html}</body></html>`;
+  return html;
+}
+
+const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; printMode: boolean }> = ({ cv, scale, printMode }) => {
+  const [html, setHtml] = useState('');
+  const [loadError, setLoadError] = useState('');
+  useEffect(() => {
+    let active = true;
+    const slug = cv.template_id.replace(/^uploaded_/, '');
+    void supabase.from('custom_html_templates').select('html_content').eq('slug', slug).eq('is_active', true).maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || !data?.html_content) setLoadError('This uploaded template is unavailable or has been unpublished.');
+        else setHtml(prepareUploadedHtml(data.html_content, cv));
+      });
+    return () => { active = false; };
+  }, [cv]);
+  if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
+  if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">Loading uploaded HTML template…</div>;
+  return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top center', overflow: 'hidden' }}>
+    <iframe title="Uploaded CV template preview" sandbox="" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
+  </div>;
+};
+
 export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 1, printMode = false }) => {
+  if (cv.template_id?.startsWith('uploaded_')) return <UploadedHtmlTemplateRenderer cv={cv} scale={scale} printMode={printMode} />;
+
   // Check if this is a registered custom HTML template
   const customTpl = getCustomTemplate(cv.template_id);
   if (customTpl) {
