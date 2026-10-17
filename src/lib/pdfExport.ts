@@ -33,6 +33,12 @@ export async function exportElementToPDF(
     }
 
     staging = document.createElement('div');
+    // Preserve inline styles from uploaded HTML templates when exporting their iframe body.
+    if (frame?.contentDocument?.head) {
+      Array.from(frame.contentDocument.head.querySelectorAll('style, link[rel="stylesheet"]')).forEach(node => {
+        staging!.appendChild(node.cloneNode(true));
+      });
+    }
     staging.setAttribute('aria-hidden', 'true');
     Object.assign(staging.style, {
       position: 'fixed',
