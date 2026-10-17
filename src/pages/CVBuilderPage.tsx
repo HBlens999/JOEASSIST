@@ -202,10 +202,6 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   };
 
   const handleExportPDF = async () => {
-    if (!isCVPolished) {
-      window.alert('Please click “Done & Improve CV” first. Model 1 must proofread the latest version before export.');
-      return;
-    }
     setIsExportingPDF(true);
     try {
       const exported = await exportElementToPDF('cv-printable-area', {
@@ -229,8 +225,8 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
       company: 'Company Name',
       location: 'City, Country',
       startDate: '2022',
-      endDate: 'Present',
-      isCurrent: true,
+      endDate: '',
+      isCurrent: false,
       bulletPoints: ['Spearheaded key initiatives resulting in measurable improvements.']
     };
     setCV(prev => ({
@@ -449,10 +445,6 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
 
             <button
               onClick={() => {
-                if (!isCVPolished) {
-                  window.alert('Please click “Done & Improve CV” first. Model 1 must proofread the latest version before printing.');
-                  return;
-                }
                 const printable = document.getElementById('cv-printable-area');
                 if (!printable) {
                   window.alert('The CV preview is not ready to print yet. Please wait for it to finish loading.');
@@ -518,14 +510,14 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
           {polishError && (
             <div className="mx-auto max-w-7xl px-4 pb-2">
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800" role="alert">
-                {polishError} Your original CV has been preserved. PDF export and printing remain locked until Model 1 succeeds.
+                {polishError} Your original CV has been preserved. You can still export or print it without AI proofreading.
               </div>
             </div>
           )}
           {!isCVPolished && !polishError && (
             <div className="mx-auto max-w-7xl px-4 pb-2">
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Finish your details, then select <strong>Done & Improve CV</strong>. Model 1 will correct grammar and punctuation using only your facts. You can then print or download the reviewed CV.
+              <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                AI proofreading is optional. You can download or print your CV at any time, or choose <strong>Done & Improve CV</strong> for an extra grammar and clarity review.
               </p>
             </div>
           )}
@@ -759,13 +751,33 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                           const val = e.target.value;
                           setCV(prev => ({
                             ...prev,
-                            work_experience: prev.work_experience.map(w => w.id === exp.id ? { ...w, endDate: val } : w)
+                            work_experience: prev.work_experience.map(w => w.id === exp.id
+                              ? { ...w, endDate: val, isCurrent: val.trim().toLowerCase() === 'present' }
+                              : w)
                           }));
                         }}
                         placeholder="End Date (or Present)"
                         className="p-1.5 text-xs border rounded bg-white"
                       />
                     </div>
+
+                    <label className="flex items-center gap-2 text-[11px] text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(exp.isCurrent)}
+                        onChange={(e) => {
+                          const isCurrent = e.target.checked;
+                          setCV(prev => ({
+                            ...prev,
+                            work_experience: prev.work_experience.map(w => w.id === exp.id
+                              ? { ...w, isCurrent, endDate: isCurrent ? 'Present' : (w.endDate.trim().toLowerCase() === 'present' ? '' : w.endDate) }
+                              : w)
+                          }));
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      I currently work here
+                    </label>
 
                     {/* Bullet Points */}
                     <div className="pt-1 space-y-1">
