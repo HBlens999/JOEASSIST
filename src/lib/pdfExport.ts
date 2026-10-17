@@ -6,13 +6,61 @@ export interface PDFExportOptions {
   isWatermarkFree?: boolean;
 }
 
+const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\\([^)]*\\)/gi;
+
+function safeCssValue(property: string, value: string): string {
+  if (!unsupportedColorFunctions.test(value)) {
+    unsupportedColorFunctions.lastIndex = 0;
+    return value;
+  }
+  unsupportedColorFunctions.lastIndex = 0;
+  if (property === 'color' || property === 'fill' || property === 'stroke' || property.includes('border-color')) {
+    return 'rgb(17, 24, 39)';
+  }
+  if (property.includes('background') || property === 'background') return 'rgb(255, 255, 255)';
+  if (property.includes('shadow')) return 'none';
+  return 'transparent';
+}
+
 /**
- * Export only the CV document to an A4 PDF. The editor and its controls are
- * never captured. Long CVs are sliced into correctly sized A4 pages.
+ * Copy computed styles as browser-resolved inline CSS before capture. This avoids
+ * html2canvas parsing modern Tailwind oklch() tokens and preserves the actual CV layout.
+ */
+function inlineComputedStyles(source: Element, clone: Element): void {
+  const sourceWindow = source.ownerDocument?.defaultView;
+  if (sourceWindow) {
+    const computed = sourceWindow.getComputedStyle(source);
+    const style = (clone as HTMLElement | SVGElement).style;
+    for (let i = 0; i < computed.length; i++) {
+      const property = computed.item(i);
+      if (!property || property.startsWith('--')) continue;
+      const value = safeCssValue(property, computed.getPropertyValue(property));
+      try {
+        style.setProperty(property, value, computed.getPropertyPriority(property));
+      } catch {
+        // Ignore unsupported or read-only declarations.
+      }
+    }
+  }
+
+  // Classes can reintroduce Tailwind color functions when CSS is parsed, so keep
+  // the resolved inline styles and remove class names from the export clone.
+  clone.removeAttribute('class');
+  const sourceChildren = Array.from(source.children);
+  const cloneChildren = Array.from(clone.children);
+  sourceChildren.forEach((child, index) => {
+    const cloneChild = cloneChildren[index];
+    if (cloneChild) inlineComputedStyles(child, cloneChild);
+  });
+}
+
+/**
+ * Export just the CV to A4. A document that fits the A4 preview is one page;
+ * additional pages are created only when the actual content exceeds A4 height.
  */
 export async function exportElementToPDF(
   elementId: string,
-  options: PDFExportOptions = {}
+  options: PDFExportOptions = {},
 ): Promise<boolean> {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -24,8 +72,6 @@ export async function exportElementToPDF(
   let staging: HTMLDivElement | null = null;
 
   try {
-    // Uploaded HTML templates use an accessible same-origin iframe. Capture its
-    // body when available; otherwise capture the regular React template element.
     const frame = element.querySelector('iframe') as HTMLIFrameElement | null;
     const source = frame?.contentDocument?.body || element;
     if (frame && !frame.contentDocument?.body) {
@@ -33,16 +79,9 @@ export async function exportElementToPDF(
     }
 
     staging = document.createElement('div');
-    // Preserve inline styles from uploaded HTML templates when exporting their iframe body.
-    if (frame?.contentDocument?.head) {
-      Array.from(frame.contentDocument.head.querySelectorAll('style, link[rel="stylesheet"]')).forEach(node => {
-        staging!.appendChild(node.cloneNode(true));
-      });
-    }
-    staging.setAttribute('aria-hidden', 'true');
     Object.assign(staging.style, {
       position: 'fixed',
-      left: '-10000px',
+      left: '-20000px',
       top: '0',
       width: '210mm',
       minHeight: '297mm',
@@ -55,10 +94,11 @@ export async function exportElementToPDF(
     });
 
     const clone = source.cloneNode(true) as HTMLElement;
+    inlineComputedStyles(source, clone);
     clone.removeAttribute('id');
     Object.assign(clone.style, {
       width: '210mm',
-      minWidth: '0',
+      minWidth: '210mm',
       maxWidth: '210mm',
       minHeight: '297mm',
       height: 'auto',
@@ -69,15 +109,17 @@ export async function exportElementToPDF(
       overflow: 'visible',
       boxSizing: 'border-box',
       background: '#ffffff',
-      color: '#111827',
+      color: '#000000',
+      position: 'relative',
     });
+
+    // Uploaded templates use an iframe body as the source. Inline styles were
+    // resolved in that iframe before the clone is placed in the main document.
     staging.appendChild(clone);
     document.body.appendChild(staging);
 
-    // Wait for fonts and images before rasterizing, when browser APIs are available.
     if ('fonts' in document) await document.fonts.ready;
-    const images = Array.from(clone.querySelectorAll('img'));
-    await Promise.all(images.map(img => {
+    await Promise.all(Array.from(clone.querySelectorAll('img')).map(img => {
       if (img.complete) return Promise.resolve();
       return new Promise<void>(resolve => {
         img.onload = () => resolve();
@@ -96,14 +138,27 @@ export async function exportElementToPDF(
       windowWidth: Math.max(794, clone.scrollWidth),
       scrollX: 0,
       scrollY: 0,
+      onclone: clonedDocument => {
+        // Inline computed styles now carry the visual appearance; removing linked
+        // stylesheets prevents html2canvas from parsing Tailwind's unsupported oklch().
+        clonedDocument.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => node.remove());
+        clonedDocument.querySelectorAll('*').forEach(node => {
+          const htmlNode = node as HTMLElement;
+          for (const property of Array.from(htmlNode.style)) {
+            const value = htmlNode.style.getPropertyValue(property);
+            htmlNode.style.setProperty(property, safeCssValue(property, value));
+          }
+        });
+      },
     });
 
-    if (!canvas.width || !canvas.height) throw new Error('The CV preview is empty. Add your details and try exporting again.');
+    if (!canvas.width || !canvas.height) {
+      throw new Error('The CV preview is empty. Add your details and try exporting again.');
+    }
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageWidth = 210;
     const pageHeight = 297;
-    // Pixel height corresponding to one A4 page at the captured canvas scale.
     const pagePixelHeight = Math.floor(canvas.width * pageHeight / pageWidth);
     const pageCount = Math.max(1, Math.ceil(canvas.height / pagePixelHeight));
 
@@ -114,16 +169,16 @@ export async function exportElementToPDF(
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = canvas.width;
       pageCanvas.height = pagePixelHeight;
-      const ctx = pageCanvas.getContext('2d');
-      if (!ctx) throw new Error('Could not prepare the PDF page.');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      ctx.drawImage(canvas, 0, startY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
-      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+      const context = pageCanvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare the PDF page.');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      context.drawImage(canvas, 0, startY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
       if (!isWatermarkFree) {
         pdf.setFontSize(7);
-        pdf.setTextColor(150, 150, 150);
+        pdf.setTextColor(110, 110, 110);
         pdf.text('Created with JOEASSIST (Free Edition) • Upgrade to remove watermark', 10, pageHeight - 4);
       }
     }
