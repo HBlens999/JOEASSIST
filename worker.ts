@@ -162,6 +162,27 @@ Write a natural, respectful, specific application letter body that connects only
           if (!body.rawText || String(body.rawText).trim().length < 20) return json({ error: 'Please provide readable CV text to extract.' }, 400);
           prompt = `Parse this raw CV text accurately without inventing information. RAW TEXT:\n${body.rawText}\nReturn JSON {"personal_info":{"fullName":"string","professionalTitle":"string","email":"string","phone":"string","location":"string","linkedin":"string","website":"string"},"summary":"string","work_experience":[{"id":"1","jobTitle":"string","company":"string","location":"string","startDate":"string","endDate":"string","isCurrent":false,"bulletPoints":["string"]}],"education":[{"id":"1","degree":"string","fieldOfStudy":"string","institution":"string","startDate":"string","endDate":"string","gradeGpa":"string"}],"skills":[{"id":"1","category":"string","items":["string"]}],"languages":[{"id":"1","language":"string","proficiency":"Fluent"}]}`;
           break;
+        case '/api/gemini/polish-cv': {
+          const cv = body.cv;
+          if (!cv || typeof cv !== 'object' || !cv.personal_info) {
+            return json({ error: 'INVALID_CV', message: 'Please complete the CV details before polishing.' }, 400);
+          }
+          prompt = `You are Model 1, the final professional CV proofreader and editor for JOEASSIST.
+Return a complete JSON object representing the supplied CV with exactly the same schema and keys.
+Improve grammar, spelling, punctuation, clarity, sentence flow, professional tone, and readability. Tailor wording to the role and facts actually supplied.
+FACTUALITY RULES:
+- Preserve names, employers, schools, dates, qualifications, skills, projects, URLs, and all factual details unless correcting an obvious spelling or grammar error in ordinary prose.
+- Do not invent achievements, metrics, numbers, percentages, clients, awards, tools, duties, certifications, or responsibilities.
+- Never add placeholders such as X%, [X], [Company Name], "insert metric", or "TBD".
+- Rewrite weak metric-seeking sentences as strong truthful qualitative statements when no metric was provided.
+- Do not fill empty fields with generic copy. Keep empty fields empty.
+- Keep every item ID unchanged. Preserve template, styling, section order, and metadata.
+- Only polish user-provided text. Do not add or remove work, education, project, skill, certification, language, or other entries.
+- Keep bullet points concise and truthful. Return valid JSON only, without markdown or commentary.
+CV JSON:
+${JSON.stringify(cv)}`;
+          break;
+        }
         case '/api/gemini/proposal-draft':
           prompt = `Generate executive text sections for a business proposal. Proposal Title: "${body.title || ''}". Client Name: "${body.clientName || ''}". Client Problem: "${body.clientProblem || ''}". Our Solution Concept: "${body.proposedSolution || ''}". Return JSON {"executive_summary":"string","client_needs":"string","proposed_solution":"string","suggested_deliverables":[{"id":"1","title":"string","description":"string"}],"terms_and_conditions":"string"}.`;
           break;
@@ -180,7 +201,7 @@ Write a natural, respectful, specific application letter body that connects only
               },
               { role: 'user', content: prompt }
             ],
-            max_completion_tokens: 1800,
+            max_completion_tokens: routePath === '/api/gemini/polish-cv' ? 6000 : 1800,
             temperature: 0.2,
             // Explicitly disable reasoning tokens so GLM spends its budget on the visible answer.
             reasoning_effort: null,
