@@ -160,7 +160,9 @@ export async function exportElementToPDF(
     const pageWidth = 210;
     const pageHeight = 297;
     const pagePixelHeight = Math.floor(canvas.width * pageHeight / pageWidth);
-    const pageCount = Math.max(1, Math.ceil(canvas.height / pagePixelHeight));
+    // Browsers can rasterize a nominal 297mm page a pixel or two taller due
+    // to fractional CSS-mm conversion. Do not turn that rounding into a blank page.
+    const pageCount = Math.max(1, Math.ceil((canvas.height - 4) / pagePixelHeight));
 
     for (let page = 0; page < pageCount; page++) {
       if (page > 0) pdf.addPage('a4', 'portrait');
