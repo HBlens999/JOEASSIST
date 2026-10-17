@@ -419,7 +419,7 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                 const cleanup = () => document.body.classList.remove('printing-cv');
                 window.addEventListener('afterprint', cleanup, { once: true });
                 window.print();
-                window.setTimeout(cleanup, 1500);
+                cleanup();
               }}
               className="p-2 text-gray-600 hover:text-gray-900 rounded-xl hover:bg-gray-100 border border-gray-200"
               title="Print Document"
