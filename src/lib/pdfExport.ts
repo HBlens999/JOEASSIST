@@ -38,8 +38,8 @@ function oklchToRgb(value: string): string | null {
     return Math.round(srgb * 255);
   });
   return alpha < 1
-    ? \`rgba(\${channels[0]}, \${channels[1]}, \${channels[2]}, \${Math.max(0, Math.min(1, alpha))})\`
-    : \`rgb(\${channels[0]}, \${channels[1]}, \${channels[2]})\`;
+    ? `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${Math.max(0, Math.min(1, alpha))})`
+    : `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
 }
 
 function safeCssValue(property: string, value: string): string {
