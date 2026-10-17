@@ -106,6 +106,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          ...({ '--cv-primary-color': cv.styling?.primaryColor || '#1e3a8a' } as React.CSSProperties),
         }}
       >
         {customTpl.render(cv)}
