@@ -258,10 +258,20 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
               {proj.role && <span className="text-[11px] text-gray-500">{proj.role}</span>}
             </div>
             <p className="text-xs text-gray-700 leading-snug">{proj.description}</p>
+            {proj.url && (
+              <p className="text-[11px] text-blue-700 break-all">{proj.url}</p>
+            )}
             {proj.technologies?.length ? (
-              <div className="text-[11px] text-blue-700 mt-0.5 font-medium">
-                Tech: {proj.technologies.join(', ')}
+              <div className="text-[11px] text-blue-700 mt-0.5 font-medium break-words">
+                Tools / Skills: {proj.technologies.join(', ')}
               </div>
+            ) : null}
+            {proj.keyAchievements?.length ? (
+              <ul className="list-disc ml-3.5 mt-1 space-y-0.5 text-[11px] text-gray-700">
+                {proj.keyAchievements.filter(Boolean).map((achievement, achievementIndex) => (
+                  <li key={achievementIndex} className="leading-snug">{achievement}</li>
+                ))}
+              </ul>
             ) : null}
           </div>
         ))}
