@@ -6,7 +6,7 @@ export interface PDFExportOptions {
   isWatermarkFree?: boolean;
 }
 
-const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\\([^)]*\\)/gi;
+const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\([^)]*\)/gi;
 
 function safeCssValue(property: string, value: string): string {
   if (!unsupportedColorFunctions.test(value)) {
