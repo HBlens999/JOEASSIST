@@ -95,13 +95,22 @@
 }
 
 
-/* CV printing is isolated from the JOEASSIST editor and all surrounding UI. */
+/* CV print layout: exact A4 canvas, centered, with no browser-added margins. */
 @media print {
-  body.printing-cv,
-  body.printing-cv html {
-    background: #fff !important;
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body,
+  body.printing-cv {
+    width: 210mm !important;
+    min-width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
   }
 
   body.printing-cv * {
@@ -114,14 +123,18 @@
   }
 
   body.printing-cv #cv-printable-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 190mm !important;
-    max-width: 190mm !important;
-    min-height: 0 !important;
+    position: relative !important;
+    display: block !important;
+    left: auto !important;
+    top: auto !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-width: 210mm !important;
+    min-height: 297mm !important;
     height: auto !important;
-    margin: 0 !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -129,22 +142,21 @@
     transform-origin: top left !important;
     overflow: visible !important;
     background: #fff !important;
+    color: #000 !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   body.printing-cv #cv-printable-area * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    max-width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body.printing-cv .no-print,
   body.printing-cv button {
     display: none !important;
-  }
-
-  @page {
-    size: A4 portrait;
-    margin: 10mm;
   }
 }
