@@ -104,6 +104,11 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   const [aiNotes, setAiNotes] = useState('');
   const [aiResultPreview, setAiResultPreview] = useState<any>(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isPolishingCV, setIsPolishingCV] = useState(false);
+  const [polishError, setPolishError] = useState('');
+  const [polishedCVSignature, setPolishedCVSignature] = useState('');
+  const currentCVSignature = JSON.stringify(cv);
+  const isCVPolished = polishedCVSignature !== '' && polishedCVSignature === currentCVSignature;
   const [activeSection, setActiveSection] = useState<string>('personal');
   const [uploadedTemplates, setUploadedTemplates] = useState<{ id: string; name: string; isPremium: boolean }[]>([]);
   const allTemplates = [...CV_TEMPLATES, ...uploadedTemplates];
@@ -171,7 +176,36 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
     }
   };
 
+  const handlePolishCV = async () => {
+    if (!checkCanUseAI()) return;
+    setIsPolishingCV(true);
+    setPolishError('');
+    try {
+      const response = await authenticatedFetch('/api/gemini/polish-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cv }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.data) {
+        throw new Error(result?.message || result?.error || 'Model 1 could not polish this CV.');
+      }
+      const polished = result.data as CVDocument;
+      setCV(polished);
+      setPolishedCVSignature(JSON.stringify(polished));
+      recordAIUsage();
+    } catch (error) {
+      setPolishError(error instanceof Error ? error.message : 'Model 1 could not polish this CV. Your original information is unchanged.');
+    } finally {
+      setIsPolishingCV(false);
+    }
+  };
+
   const handleExportPDF = async () => {
+    if (!isCVPolished) {
+      window.alert('Please click “Done & Improve CV” first. Model 1 must proofread the latest version before export.');
+      return;
+    }
     setIsExportingPDF(true);
     try {
       const exported = await exportElementToPDF('cv-printable-area', {
@@ -415,11 +449,14 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
 
             <button
               onClick={() => {
+                if (!isCVPolished) {
+                  window.alert('Please click “Done & Improve CV” first. Model 1 must proofread the latest version before printing.');
+                  return;
+                }
                 document.body.classList.add('printing-cv');
                 const cleanup = () => document.body.classList.remove('printing-cv');
                 window.addEventListener('afterprint', cleanup, { once: true });
                 window.print();
-                cleanup();
               }}
               className="p-2 text-gray-600 hover:text-gray-900 rounded-xl hover:bg-gray-100 border border-gray-200"
               title="Print Document"
@@ -427,6 +464,15 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
               <Printer className="w-4 h-4" />
             </button>
 
+            <button
+              onClick={handlePolishCV}
+              disabled={isPolishingCV || isExportingPDF}
+              className={`px-4 py-2 text-xs font-bold rounded-xl border flex items-center gap-1.5 transition disabled:opacity-50 ${isCVPolished ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'}`}
+              title="Finish entering details and let Model 1 proofread the CV"
+            >
+              {isPolishingCV ? <RefreshCw className="w-4 h-4 animate-spin" /> : isCVPolished ? <Check className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+              <span>{isPolishingCV ? 'Model 1 is improving…' : isCVPolished ? 'CV Ready' : 'Done & Improve CV'}</span>
+            </button>
             <button
               onClick={handleExportPDF}
               disabled={isExportingPDF}
@@ -436,6 +482,20 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
               <span>{isExportingPDF ? 'Exporting...' : 'Download PDF'}</span>
             </button>
           </div>
+          {polishError && (
+            <div className="mx-auto max-w-7xl px-4 pb-2">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800" role="alert">
+                {polishError} Your original CV has been preserved. PDF export and printing remain locked until Model 1 succeeds.
+              </div>
+            </div>
+          )}
+          {!isCVPolished && !polishError && (
+            <div className="mx-auto max-w-7xl px-4 pb-2">
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Finish your details, then select <strong>Done & Improve CV</strong>. Model 1 will correct grammar and punctuation using only your facts. You can then print or download the reviewed CV.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
