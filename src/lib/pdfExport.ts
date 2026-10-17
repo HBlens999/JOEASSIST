@@ -6,10 +6,10 @@ export interface PDFExportOptions {
   isWatermarkFree?: boolean;
 }
 
-const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\\([^)]*\\)/gi;
+const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\([^)]*\)/gi;
 
 function oklchToRgb(value: string): string | null {
-  const match = value.match(/oklch\\(\\s*([\\d.]+%?)\\s+([\\d.]+)\\s+([\\d.]+)(?:deg)?(?:\\s*\\/\\s*([\\d.]+%?))?\\s*\\)/i);
+  const match = value.match(/oklch\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?(?:\s*\/\s*([\d.]+%?))?\s*\)/i);
   if (!match) return null;
   const Lraw = match[1];
   const L = Lraw.endsWith('%') ? parseFloat(Lraw) / 100 : parseFloat(Lraw);
@@ -20,7 +20,7 @@ function oklchToRgb(value: string): string | null {
   const a = C * Math.cos(h);
   const b = C * Math.sin(h);
 
-  // OKLab -> LMS cube roots -> linear sRGB.
+  // OKLCH -> OKLab -> linear sRGB -> sRGB.
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
   const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
   const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
@@ -38,12 +38,12 @@ function oklchToRgb(value: string): string | null {
     return Math.round(srgb * 255);
   });
   return alpha < 1
-    ? `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${Math.max(0, Math.min(1, alpha))})`
-    : `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+    ? \`rgba(\${channels[0]}, \${channels[1]}, \${channels[2]}, \${Math.max(0, Math.min(1, alpha))})\`
+    : \`rgb(\${channels[0]}, \${channels[1]}, \${channels[2]})\`;
 }
 
 function safeCssValue(property: string, value: string): string {
-  const modernColor = value.match(/oklch\\([^)]*\\)/i);
+  const modernColor = value.match(/oklch\([^)]*\)/i);
   if (modernColor) {
     const converted = oklchToRgb(modernColor[0]);
     if (converted) return value.replace(modernColor[0], converted);
