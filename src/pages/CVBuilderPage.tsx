@@ -110,6 +110,16 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   const previewScale = typeof window !== 'undefined'
     ? (window.innerWidth < 640 ? 0.34 : window.innerWidth < 1024 ? 0.46 : 0.68)
     : 0.68;
+  const templatesWithProjects = [
+    'tech_terminal', 'data_science_ai', 'engineering_architect',
+    'creative_studio', 'international_europass', 'healthcare_clinical',
+    'compact_onepage', 'student_intern', 'modern_minimalist',
+    'scandinavian_pure', 'swiss_grid', 'graduate_launchpad',
+    'project_master', 'startup_founding', 'marketing_growth',
+    'supply_chain_logistics', 'infographic_modern', 'customer_champion',
+    'education_educator', 'hospitality_service', 'public_sector_ngo',
+  ];
+  const showProjectsForTemplate = cv.template_id.startsWith('uploaded_') || templatesWithProjects.includes(cv.template_id);
 
   useEffect(() => {
     let active = true;
@@ -436,12 +446,12 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
           {/* Section Navigation Tabs */}
           <div className="bg-white p-2 rounded-2xl border border-gray-200 flex gap-1 overflow-x-auto scrollbar-thin text-xs font-bold">
             {[
-              { id: 'personal', label: 'Contact' },
-              { id: 'summary', label: 'Summary' },
-              { id: 'experience', label: 'Experience' },
-              { id: 'education', label: 'Education' },
-              { id: 'skills', label: 'Skills' },
-              { id: 'projects', label: 'Projects' },
+              { id: 'personal', label: '1. Contact' },
+              { id: 'summary', label: '2. Summary' },
+              { id: 'experience', label: '3. Experience' },
+              { id: 'education', label: '4. Education' },
+              { id: 'skills', label: '5. Skills' },
+              ...(showProjectsForTemplate ? [{ id: 'projects', label: '6. Projects' }] : []),
               { id: 'styling', label: 'Design' },
             ].map(tab => (
               <button
@@ -908,6 +918,9 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                         return;
                       }
                       setCV(prev => ({ ...prev, template_id: e.target.value }));
+                      if (!e.target.value.startsWith('uploaded_') && !templatesWithProjects.includes(e.target.value) && activeSection === 'projects') {
+                        setActiveSection('personal');
+                      }
                     }}
                     className="w-full p-2 text-xs border rounded-lg bg-white"
                   >
