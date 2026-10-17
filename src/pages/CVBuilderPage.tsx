@@ -107,6 +107,9 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   const [activeSection, setActiveSection] = useState<string>('personal');
   const [uploadedTemplates, setUploadedTemplates] = useState<{ id: string; name: string; isPremium: boolean }[]>([]);
   const allTemplates = [...CV_TEMPLATES, ...uploadedTemplates];
+  const previewScale = typeof window !== 'undefined'
+    ? (window.innerWidth < 640 ? 0.34 : window.innerWidth < 1024 ? 0.46 : 0.68)
+    : 0.68;
 
   useEffect(() => {
     let active = true;
@@ -161,10 +164,14 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
   const handleExportPDF = async () => {
     setIsExportingPDF(true);
     try {
-      await exportElementToPDF('cv-printable-area', {
-        filename: `${cv.personal_info.fullName || 'JOEASSIST'}_CV.pdf`,
+      const exported = await exportElementToPDF('cv-printable-area', {
+        filename: `${(cv.personal_info.fullName || 'JOEASSIST').replace(/[\\/:*?"<>|]/g, '_')}_CV.pdf`,
         isWatermarkFree,
       });
+      if (!exported) window.alert('PDF export could not find the CV page. Please switch to the CV preview and try again.');
+    } catch (error) {
+      console.error('CV PDF export failed:', error);
+      window.alert(error instanceof Error ? error.message : 'PDF export failed. Please wait for the CV preview to finish loading and try again.');
     } finally {
       setIsExportingPDF(false);
     }
@@ -941,8 +948,8 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
           </div>
 
           <div className="w-full min-w-0 flex justify-center overflow-hidden py-2">
-            <div className="w-full max-w-full flex justify-center overflow-hidden">
-              <TemplateRenderer cv={cv} scale={typeof window !== 'undefined' && window.innerWidth < 640 ? 0.48 : window.innerWidth < 1024 ? 0.62 : 0.78} />
+            <div style={{ width: `${210 * previewScale}mm`, height: `${297 * previewScale}mm`, maxWidth: '100%', flex: '0 0 auto', position: 'relative' }}>
+              <TemplateRenderer cv={cv} scale={previewScale} />
             </div>
           </div>
         </div>
