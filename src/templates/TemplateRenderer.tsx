@@ -81,7 +81,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
     return () => { active = false; };
   }, [cv.template_id, cvSignature]);
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
-  if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">Loading uploaded HTML template…</div>;
+  if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
   return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
     <iframe title="Uploaded CV template preview" sandbox="allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
   </div>;
@@ -119,11 +119,11 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
   // Helper for contact details row
   const renderContactBar = (layout: 'inline' | 'stacked' | 'sidebar' = 'inline', darkBg = false) => {
-    const textColor = darkBg ? 'text-gray-200' : 'text-gray-600';
+    const textColor = darkBg ? 'text-gray-200' : 'text-gray-800';
     const iconColor = darkBg ? 'text-blue-300' : 'text-blue-600';
 
     return (
-      <div className={`flex flex-wrap gap-x-4 gap-y-1 text-xs ${textColor} ${layout === 'stacked' ? 'flex-col space-y-1' : ''}`}>
+      <div className={`flex flex-wrap gap-x-4 gap-y-1 text-[13px] ${textColor} ${layout === 'stacked' ? 'flex-col space-y-1' : ''}`}>
         {p.email && (
           <span className="inline-flex items-center gap-1">
             <Mail className={`w-3.5 h-3.5 ${iconColor}`} />
@@ -169,7 +169,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
     if (!cv.summary) return null;
     return (
       <div className="mb-4">
-        <p className="text-xs leading-relaxed text-gray-700 whitespace-pre-line">{cv.summary}</p>
+        <p className="text-[13px] leading-relaxed text-gray-900 whitespace-pre-line">{cv.summary}</p>
       </div>
     );
   };
@@ -184,16 +184,16 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
               <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white" />
             )}
             <div className="flex justify-between items-baseline flex-wrap">
-              <span className="font-semibold text-xs text-gray-900">{exp.jobTitle}</span>
-              <span className="text-[11px] font-medium text-gray-500">
+              <span className="font-semibold text-[13px] text-gray-900">{exp.jobTitle}</span>
+              <span className="text-[12px] font-medium text-gray-700">
                 {exp.startDate} - {exp.isCurrent ? 'Present' : exp.endDate}
               </span>
             </div>
-            <div className="text-[11px] font-medium text-blue-800 mb-1">
+            <div className="text-[12px] font-medium text-blue-800 mb-1">
               {exp.company} {exp.location ? `• ${exp.location}` : ''}
             </div>
             {exp.bulletPoints?.length > 0 && (
-              <ul className="list-disc list-outside ml-3.5 space-y-0.5 text-xs text-gray-700">
+              <ul className="list-disc list-outside ml-3.5 space-y-0.5 text-[13px] text-gray-900">
                 {exp.bulletPoints.map((pt, i) => (
                   <li key={i} className="leading-snug">{pt}</li>
                 ))}
@@ -212,13 +212,13 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         {cv.education.map((edu, idx) => (
           <div key={edu.id || idx}>
             <div className="flex justify-between items-baseline flex-wrap">
-              <span className="font-semibold text-xs text-gray-900">
+              <span className="font-semibold text-[13px] text-gray-900">
                 {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
               </span>
-              <span className="text-[11px] text-gray-500">{edu.startDate} - {edu.endDate}</span>
+              <span className="text-[12px] text-gray-700">{edu.startDate} - {edu.endDate}</span>
             </div>
-            <div className="text-[11px] text-gray-700">{edu.institution} {edu.location ? `• ${edu.location}` : ''}</div>
-            {edu.gradeGpa && <div className="text-[11px] text-gray-600 font-medium">Grade / GPA: {edu.gradeGpa}</div>}
+            <div className="text-[12px] text-gray-900">{edu.institution} {edu.location ? `• ${edu.location}` : ''}</div>
+            {edu.gradeGpa && <div className="text-[12px] text-gray-800 font-medium">Grade / GPA: {edu.gradeGpa}</div>}
           </div>
         ))}
       </div>
@@ -232,7 +232,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       return (
         <div className="flex flex-wrap gap-1.5">
           {allSkills.map((sk, i) => (
-            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[11px] font-medium rounded border border-gray-200">
+            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[12px] font-medium rounded border border-gray-200">
               {sk}
             </span>
           ))}
@@ -240,11 +240,11 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       );
     }
     return (
-      <div className="space-y-1.5 text-xs">
+      <div className="space-y-1.5 text-[13px]">
         {cv.skills.map((s, idx) => (
           <div key={s.id || idx}>
             <span className="font-semibold text-gray-800">{s.category}: </span>
-            <span className="text-gray-700">{s.items.join(', ')}</span>
+            <span className="text-gray-900">{s.items.join(', ')}</span>
           </div>
         ))}
       </div>
@@ -258,20 +258,20 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         {cv.projects.map((proj, idx) => (
           <div key={proj.id || idx}>
             <div className="flex justify-between items-baseline">
-              <span className="font-semibold text-xs text-gray-900">{proj.name}</span>
-              {proj.role && <span className="text-[11px] text-gray-500">{proj.role}</span>}
+              <span className="font-semibold text-[13px] text-gray-900">{proj.name}</span>
+              {proj.role && <span className="text-[12px] text-gray-700">{proj.role}</span>}
             </div>
-            <p className="text-xs text-gray-700 leading-snug">{proj.description}</p>
+            <p className="text-[13px] text-gray-900 leading-snug">{proj.description}</p>
             {proj.url && (
-              <p className="text-[11px] text-blue-700 break-all">{proj.url}</p>
+              <p className="text-[12px] text-blue-700 break-all">{proj.url}</p>
             )}
             {proj.technologies?.length ? (
-              <div className="text-[11px] text-blue-700 mt-0.5 font-medium break-words">
+              <div className="text-[12px] text-blue-700 mt-0.5 font-medium break-words">
                 Tools / Skills: {proj.technologies.join(', ')}
               </div>
             ) : null}
             {proj.keyAchievements?.length ? (
-              <ul className="list-disc ml-3.5 mt-1 space-y-0.5 text-[11px] text-gray-700">
+              <ul className="list-disc ml-3.5 mt-1 space-y-0.5 text-[12px] text-gray-900">
                 {proj.keyAchievements.filter(Boolean).map((achievement, achievementIndex) => (
                   <li key={achievementIndex} className="leading-snug">{achievement}</li>
                 ))}
@@ -286,11 +286,11 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
   const renderCertifications = () => {
     if (!cv.certifications?.length) return null;
     return (
-      <div className="space-y-1.5 text-xs">
+      <div className="space-y-1.5 text-[13px]">
         {cv.certifications.map((c, idx) => (
           <div key={c.id || idx} className="flex justify-between">
-            <span className="font-medium text-gray-900">{c.name} — <span className="text-gray-600">{c.issuingOrganization}</span></span>
-            <span className="text-[11px] text-gray-500">{c.issueDate}</span>
+            <span className="font-medium text-gray-900">{c.name} — <span className="text-gray-800">{c.issuingOrganization}</span></span>
+            <span className="text-[12px] text-gray-700">{c.issueDate}</span>
           </div>
         ))}
       </div>
@@ -300,7 +300,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
   const renderLanguages = () => {
     if (!cv.languages?.length) return null;
     return (
-      <div className="flex flex-wrap gap-2 text-xs">
+      <div className="flex flex-wrap gap-2 text-[13px]">
         {cv.languages.map((l, i) => (
           <span key={i} className="text-gray-800">
             <strong>{l.language}</strong> ({l.proficiency})
@@ -353,7 +353,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         <div className="p-8 space-y-6">
           {cv.summary && (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
                 Executive Profile
               </h2>
               {renderSummary()}
@@ -361,7 +361,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           )}
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-3 border-b-2 border-slate-200">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-800 pb-1 mb-3 border-b-2 border-slate-200">
               Professional Experience
             </h2>
             {renderWorkExperience('standard')}
@@ -369,13 +369,13 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
                 Education
               </h2>
               {renderEducation()}
             </div>
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
                 Core Competencies & Skills
               </h2>
               {renderSkills('pills')}
@@ -384,7 +384,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
           {cv.certifications?.length ? (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-800 pb-1 mb-2 border-b-2 border-slate-200">
                 Certifications & Board Credentials
               </h2>
               {renderCertifications()}
@@ -415,7 +415,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         <div className="p-8">
           <div className="border-b-2 border-slate-900 pb-4 mb-5 flex justify-between items-end">
             <div>
-              <div className="font-mono text-[11px] text-emerald-600 font-semibold tracking-wider mb-1">// SYSTEM RESUME</div>
+              <div className="font-mono text-[12px] text-emerald-600 font-semibold tracking-wider mb-1">// SYSTEM RESUME</div>
               <h1 className="text-2xl font-bold tracking-tight text-gray-900 font-mono">{p.fullName || 'Your Name'}</h1>
               <p className="text-sm font-medium text-slate-600 mt-0.5">{p.professionalTitle || 'Software Engineer'}</p>
             </div>
@@ -429,7 +429,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
             <div className="col-span-8 space-y-5">
               {cv.summary && (
                 <div>
-                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
+                  <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
                     # Summary & Architecture
                   </h2>
                   {renderSummary()}
@@ -437,7 +437,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
               )}
 
               <div>
-                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-3">
+                <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-3">
                   # Work Experience
                 </h2>
                 {renderWorkExperience('standard')}
@@ -445,7 +445,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
               {cv.projects?.length ? (
                 <div>
-                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
+                  <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider bg-slate-100 px-2 py-1 mb-2">
                     # Projects & Systems
                   </h2>
                   {renderProjects()}
@@ -456,14 +456,14 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
             {/* Tech Sidebar */}
             <div className="col-span-4 space-y-5 border-l border-slate-200 pl-4">
               <div>
-                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider mb-2">
                   [ Tech Stack ]
                 </h2>
                 {renderSkills('pills')}
               </div>
 
               <div>
-                <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider mb-2">
                   [ Education ]
                 </h2>
                 {renderEducation()}
@@ -471,7 +471,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
               {cv.certifications?.length ? (
                 <div>
-                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider mb-2">
                     [ Certifications ]
                   </h2>
                   {renderCertifications()}
@@ -480,7 +480,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
               {cv.languages?.length ? (
                 <div>
-                  <h2 className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  <h2 className="font-mono text-[13px] font-bold text-slate-900 uppercase tracking-wider mb-2">
                     [ Languages ]
                   </h2>
                   {renderLanguages()}
@@ -516,35 +516,35 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
                 {(p.fullName || 'JA').substring(0, 2).toUpperCase()}
               </div>
               <h1 className="text-xl font-bold tracking-tight text-white">{p.fullName || 'Your Name'}</h1>
-              <p className="text-xs text-teal-300 font-medium mt-1">{p.professionalTitle}</p>
+              <p className="text-[13px] text-teal-300 font-medium mt-1">{p.professionalTitle}</p>
             </div>
 
             <div className="border-t border-white/20 pt-4">
-              <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Contact</h2>
+              <h2 className="text-[13px] font-bold uppercase tracking-wider mb-2 text-white/80">Contact</h2>
               {renderContactBar('stacked', true)}
             </div>
 
             <div className="border-t border-white/20 pt-4">
-              <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Skills</h2>
+              <h2 className="text-[13px] font-bold uppercase tracking-wider mb-2 text-white/80">Skills</h2>
               {renderSkills('pills')}
             </div>
 
             {cv.languages?.length ? (
               <div className="border-t border-white/20 pt-4">
-                <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Languages</h2>
+                <h2 className="text-[13px] font-bold uppercase tracking-wider mb-2 text-white/80">Languages</h2>
                 {renderLanguages()}
               </div>
             ) : null}
 
             {cv.certifications?.length ? (
               <div className="border-t border-white/20 pt-4">
-                <h2 className="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">Certifications</h2>
+                <h2 className="text-[13px] font-bold uppercase tracking-wider mb-2 text-white/80">Certifications</h2>
                 {renderCertifications()}
               </div>
             ) : null}
           </div>
 
-          <div className="text-[10px] text-white/40 pt-4">
+          <div className="text-[11px] text-white/40 pt-4">
             JOEASSIST Verified Format
           </div>
         </div>
@@ -553,7 +553,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         <div className="w-[140mm] p-6 space-y-5">
           {cv.summary && (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
                 Professional Profile
               </h2>
               {renderSummary()}
@@ -561,14 +561,14 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           )}
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-3 border-b border-gray-300">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-800 pb-1 mb-3 border-b border-gray-300">
               Experience
             </h2>
             {renderWorkExperience('standard')}
           </div>
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
               Education
             </h2>
             {renderEducation()}
@@ -576,7 +576,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
           {cv.projects?.length ? (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-800 pb-1 mb-2 border-b border-gray-300">
                 Key Projects
               </h2>
               {renderProjects()}
@@ -606,7 +606,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       >
         <div className="text-center pb-5 mb-6 border-b border-blue-200">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">{p.fullName || 'Your Name'}</h1>
-          <p className="text-xs font-semibold text-blue-600 mt-1 uppercase tracking-wider">{p.professionalTitle}</p>
+          <p className="text-[13px] font-semibold text-blue-600 mt-1 uppercase tracking-wider">{p.professionalTitle}</p>
           <div className="mt-3 flex justify-center">
             {renderContactBar('inline')}
           </div>
@@ -615,23 +615,23 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         <div className="space-y-6">
           {cv.summary && (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">About & Summary</h2>
+              <h2 className="text-[13px] font-bold uppercase tracking-widest text-blue-900 mb-2">About & Summary</h2>
               {renderSummary()}
             </div>
           )}
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-3">Career Progression</h2>
+            <h2 className="text-[13px] font-bold uppercase tracking-widest text-blue-900 mb-3">Career Progression</h2>
             {renderWorkExperience('timeline')}
           </div>
 
           <div className="grid grid-cols-2 gap-6 pt-2">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">Education Timeline</h2>
+              <h2 className="text-[13px] font-bold uppercase tracking-widest text-blue-900 mb-2">Education Timeline</h2>
               {renderEducation()}
             </div>
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-blue-900 mb-2">Core Skills Matrix</h2>
+              <h2 className="text-[13px] font-bold uppercase tracking-widest text-blue-900 mb-2">Core Skills Matrix</h2>
               {renderSkills('grouped')}
             </div>
           </div>
@@ -659,8 +659,8 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       >
         <div className="text-center pb-4 mb-5 border-b-2 border-t-2 border-black py-4">
           <h1 className="text-2xl font-bold tracking-wide uppercase">{p.fullName || 'Your Name'}</h1>
-          <div className="text-xs italic text-gray-700 mt-1">{p.professionalTitle}</div>
-          <div className="mt-2.5 flex justify-center font-sans text-xs">
+          <div className="text-[13px] italic text-gray-900 mt-1">{p.professionalTitle}</div>
+          <div className="mt-2.5 flex justify-center font-sans text-[13px]">
             {renderContactBar('inline')}
           </div>
         </div>
@@ -668,7 +668,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         <div className="space-y-5 font-serif">
           {cv.summary && (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
                 Professional Overview
               </h2>
               {renderSummary()}
@@ -676,21 +676,21 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           )}
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-3">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-3">
               Experience & Appointments
             </h2>
             {renderWorkExperience('standard')}
           </div>
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
               Academic Background & Qualifications
             </h2>
             {renderEducation()}
           </div>
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
               Expertise & Competencies
             </h2>
             <div className="font-sans">
@@ -700,7 +700,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
           {cv.certifications?.length ? (
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-black border-b border-gray-400 pb-0.5 mb-2">
                 Admissions, Licenses & Certifications
               </h2>
               {renderCertifications()}
@@ -730,7 +730,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       {/* Header */}
       <div className="border-b border-gray-200 pb-4 mb-5">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">{p.fullName || 'Your Name'}</h1>
-        <p className="text-xs font-semibold text-blue-700 mt-0.5">{p.professionalTitle || 'Professional Title'}</p>
+        <p className="text-[13px] font-semibold text-blue-700 mt-0.5">{p.professionalTitle || 'Professional Title'}</p>
         <div className="mt-2.5">
           {renderContactBar('inline')}
         </div>
@@ -739,7 +739,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
       <div className="space-y-5">
         {cv.summary && (
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
               Summary
             </h2>
             {renderSummary()}
@@ -747,21 +747,21 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         )}
 
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-3 border-b border-blue-100">
+          <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-3 border-b border-blue-100">
             Work Experience
           </h2>
           {renderWorkExperience('standard')}
         </div>
 
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+          <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
             Education
           </h2>
           {renderEducation()}
         </div>
 
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+          <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
             Skills & Competencies
           </h2>
           {renderSkills('grouped')}
@@ -769,7 +769,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
         {cv.projects?.length ? (
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
               Selected Projects
             </h2>
             {renderProjects()}
@@ -778,7 +778,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
         {cv.certifications?.length ? (
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
               Certifications & Accreditations
             </h2>
             {renderCertifications()}
@@ -787,7 +787,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
 
         {cv.languages?.length ? (
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-blue-900 pb-1 mb-2 border-b border-blue-100">
               Languages
             </h2>
             {renderLanguages()}
