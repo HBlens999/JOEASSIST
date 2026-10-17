@@ -17,7 +17,10 @@ export async function authenticatedFetch(input: RequestInfo | URL, init: Request
       const selectedModel = typeof window !== 'undefined'
         ? window.localStorage.getItem('joeassist_ai_model')
         : null;
-      parsedBody.model = selectedModel === 'model1' ? 'model1' : 'model2';
+      // Final CV proofreading must always use Model 1, regardless of the user's default AI selection.
+      parsedBody.model = requestUrl.endsWith('/api/gemini/polish-cv')
+        ? 'model1'
+        : selectedModel === 'model1' ? 'model1' : 'model2';
       body = JSON.stringify(parsedBody);
     } catch {
       // Leave non-JSON request bodies untouched.
