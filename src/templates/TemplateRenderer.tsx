@@ -329,7 +329,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
         }}
       >
         <div className={`${bannerBg} px-8 py-7 text-white`}>
@@ -411,7 +411,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
         }}
       >
         <div className="p-8">
@@ -508,7 +508,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           width: '210mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
         }}
       >
         {/* Left Sidebar */}
@@ -605,7 +605,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
         }}
       >
         <div className="text-center pb-5 mb-6 border-b border-blue-200">
@@ -659,7 +659,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
         }}
       >
         <div className="text-center pb-4 mb-5 border-b-2 border-t-2 border-black py-4">
@@ -730,7 +730,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         minHeight: '297mm',
         transform: printMode ? 'none' : `scale(${scale})`,
         transformOrigin: 'top left',
-          '--cv-primary-color': primaryColor,
+          ...({ '--cv-primary-color': primaryColor } as React.CSSProperties),
       }}
     >
       {/* Header */}
