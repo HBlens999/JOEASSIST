@@ -382,6 +382,65 @@ Return JSON:
   }
 });
 
+
+/**
+ * Final CV proofreading. This endpoint intentionally uses Model 1 only
+ * (the configured Gemini-backed primary model) and never falls back to another model.
+ */
+app.post('/api/gemini/polish-cv', async (req: Request, res: Response) => {
+  const ai = getGeminiClient();
+  if (!ai) {
+    return res.status(503).json({
+      error: 'MODEL1_NOT_CONFIGURED',
+      message: 'Model 1 is not configured. The CV has not been changed.',
+    });
+  }
+
+  const cv = req.body?.cv;
+  if (!cv || typeof cv !== 'object' || !cv.personal_info) {
+    return res.status(400).json({ error: 'INVALID_CV', message: 'Please complete the CV details before polishing.' });
+  }
+
+  const prompt = `
+You are Model 1, the final professional CV proofreader and editor for JOEASSIST.
+Return a complete JSON object representing the supplied CV with the SAME schema and keys.
+Improve grammar, spelling, punctuation, clarity, sentence flow, professional tone, and readability.
+Tailor wording to the actual role and facts supplied by the user. Improve weak sentences without changing the user's meaning.
+CRITICAL FACTUALITY RULES:
+- Preserve names, employers, schools, dates, qualifications, skills, projects, URLs, and all other factual details exactly unless correcting an obvious spelling/grammar error in ordinary prose.
+- Do not invent achievements, metrics, numbers, percentages, clients, awards, tools, duties, certifications, or responsibilities.
+- Never add placeholders such as X%, [X], [Company Name], "insert metric", "TBD", or invented example values.
+- If a sentence implies a metric that the user did not provide, rewrite it as a strong truthful qualitative statement without a number.
+- Do not fill empty fields with generic copy. Keep fields empty when the user supplied no information.
+- Keep every item ID unchanged. Preserve the selected template, styling, section order, and document metadata.
+- Only polish user-provided text fields. Do not add or remove work, education, project, skill, certification, language, or other entries.
+- Keep bullet points concise, readable, and achievement-focused only when the supplied facts support it.
+- Return valid JSON only, with no markdown fences or commentary.
+
+CV JSON:
+${JSON.stringify(cv)}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' },
+    });
+    const polished = JSON.parse(response.text || '{}');
+    if (!polished || typeof polished !== 'object' || !polished.personal_info || !Array.isArray(polished.work_experience)) {
+      return res.status(502).json({ error: 'MODEL1_INVALID_RESPONSE', message: 'Model 1 returned an invalid CV response. Your original CV is unchanged.' });
+    }
+    return res.json({ success: true, data: polished, model: 'model1' });
+  } catch (err: any) {
+    console.error('Model 1 CV polish failed:', err);
+    return res.status(502).json({
+      error: 'MODEL1_POLISH_FAILED',
+      message: 'Model 1 could not polish this CV. Your original CV is unchanged. Please try again.',
+    });
+  }
+});
+
 // 3. Improve Bullet Points
 app.post('/api/gemini/improve-bullets', async (req: Request, res: Response) => {
   const ai = getGeminiClient();
