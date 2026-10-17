@@ -160,3 +160,35 @@
     display: none !important;
   }
 }
+
+
+/* CV template accent overrides driven by the selected Primary Color Accent. */
+#cv-printable-area {
+  --cv-primary-color: #1e3a8a;
+}
+#cv-printable-area .text-blue-600,
+#cv-printable-area .text-blue-700,
+#cv-printable-area .text-blue-800,
+#cv-printable-area .text-blue-900,
+#cv-printable-area .text-teal-600,
+#cv-printable-area .text-teal-700,
+#cv-printable-area .text-emerald-600,
+#cv-printable-area .text-emerald-700,
+#cv-printable-area .text-indigo-600,
+#cv-printable-area .text-indigo-700 {
+  color: var(--cv-primary-color) !important;
+}
+#cv-printable-area .border-blue-200,
+#cv-printable-area .border-blue-300,
+#cv-printable-area .border-blue-400,
+#cv-printable-area .border-blue-600,
+#cv-printable-area .border-teal-600,
+#cv-printable-area .border-emerald-600 {
+  border-color: var(--cv-primary-color) !important;
+}
+#cv-printable-area .bg-blue-600,
+#cv-printable-area .bg-blue-700,
+#cv-printable-area .bg-teal-600,
+#cv-printable-area .bg-emerald-600 {
+  background-color: var(--cv-primary-color) !important;
+}
