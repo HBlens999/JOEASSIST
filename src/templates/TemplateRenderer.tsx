@@ -29,6 +29,9 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   const skills = (cv.skills || []).map(group =>
     `<div style="margin:5px 0"><strong>${escapeTemplateValue(group.category)}:</strong> ${(group.items || []).map(escapeTemplateValue).join(', ')}</div>`
   ).join('');
+  const projects = (cv.projects || []).map(project =>
+    `<section style="margin:10px 0"><h3>${escapeTemplateValue(project.name)}</h3>${project.role ? `<p><strong>Role:</strong> ${escapeTemplateValue(project.role)}</p>` : ''}<p>${escapeTemplateValue(project.description)}</p>${project.url ? `<p>${escapeTemplateValue(project.url)}</p>` : ''}${project.technologies?.length ? `<p><strong>Tools / Skills:</strong> ${project.technologies.map(escapeTemplateValue).join(', ')}</p>` : ''}${project.keyAchievements?.length ? `<ul>${project.keyAchievements.map(item => `<li>${escapeTemplateValue(item)}</li>`).join('')}</ul>` : ''}</section>`
+  ).join('');
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
     .replace(/<script\b[^>]*\/?\s*>/gi, '')
@@ -49,6 +52,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     experience,
     education,
     skills,
+    projects,
   };
   for (const [key, value] of Object.entries(replacements)) {
     html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
