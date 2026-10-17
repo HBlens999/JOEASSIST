@@ -6,9 +6,48 @@ export interface PDFExportOptions {
   isWatermarkFree?: boolean;
 }
 
-const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\([^)]*\)/gi;
+const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\\([^)]*\\)/gi;
+
+function oklchToRgb(value: string): string | null {
+  const match = value.match(/oklch\\(\\s*([\\d.]+%?)\\s+([\\d.]+)\\s+([\\d.]+)(?:deg)?(?:\\s*\\/\\s*([\\d.]+%?))?\\s*\\)/i);
+  if (!match) return null;
+  const Lraw = match[1];
+  const L = Lraw.endsWith('%') ? parseFloat(Lraw) / 100 : parseFloat(Lraw);
+  const C = parseFloat(match[2]);
+  const h = (parseFloat(match[3]) * Math.PI) / 180;
+  const alphaRaw = match[4];
+  const alpha = alphaRaw ? (alphaRaw.endsWith('%') ? parseFloat(alphaRaw) / 100 : parseFloat(alphaRaw)) : 1;
+  const a = C * Math.cos(h);
+  const b = C * Math.sin(h);
+
+  // OKLab -> LMS cube roots -> linear sRGB.
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const ss = s_ * s_ * s_;
+  const linear = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * ss,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * ss,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * ss,
+  ];
+  const channels = linear.map(channel => {
+    const bounded = Math.max(0, Math.min(1, channel));
+    const srgb = bounded <= 0.0031308 ? 12.92 * bounded : 1.055 * Math.pow(bounded, 1 / 2.4) - 0.055;
+    return Math.round(srgb * 255);
+  });
+  return alpha < 1
+    ? `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${Math.max(0, Math.min(1, alpha))})`
+    : `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+}
 
 function safeCssValue(property: string, value: string): string {
+  const modernColor = value.match(/oklch\\([^)]*\\)/i);
+  if (modernColor) {
+    const converted = oklchToRgb(modernColor[0]);
+    if (converted) return value.replace(modernColor[0], converted);
+  }
   if (!unsupportedColorFunctions.test(value)) {
     unsupportedColorFunctions.lastIndex = 0;
     return value;
