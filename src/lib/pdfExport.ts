@@ -7,10 +7,11 @@ export interface PDFExportOptions {
 }
 
 /**
- * Downloads a DOM element as a high-fidelity vector/raster A4 PDF document.
+ * Export only the CV document to an A4 PDF. The editor and its controls are
+ * never captured. Long CVs are sliced into correctly sized A4 pages.
  */
 export async function exportElementToPDF(
-  elementId: string, 
+  elementId: string,
   options: PDFExportOptions = {}
 ): Promise<boolean> {
   const element = document.getElementById(elementId);
@@ -20,66 +21,114 @@ export async function exportElementToPDF(
   }
 
   const { filename = 'document.pdf', isWatermarkFree = true } = options;
+  let staging: HTMLDivElement | null = null;
 
   try {
-    // Uploaded HTML templates render in a script-disabled sandboxed iframe.
-    // Capture its document body when accessible so custom layouts are included in PDF export.
-    const templateFrame = element.querySelector('iframe') as HTMLIFrameElement | null;
-    const captureElement = templateFrame?.contentDocument?.body || element;
-    // Generate high resolution canvas (scale: 2 for 300DPI crispness)
-    const canvas = await html2canvas(captureElement, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: 1200,
+    // Uploaded HTML templates use an accessible same-origin iframe. Capture its
+    // body when available; otherwise capture the regular React template element.
+    const frame = element.querySelector('iframe') as HTMLIFrameElement | null;
+    const source = frame?.contentDocument?.body || element;
+    if (frame && !frame.contentDocument?.body) {
+      throw new Error('The selected uploaded template has not finished loading. Please wait a moment and try again.');
+    }
+
+    staging = document.createElement('div');
+    staging.setAttribute('aria-hidden', 'true');
+    Object.assign(staging.style, {
+      position: 'fixed',
+      left: '-10000px',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      height: 'auto',
+      overflow: 'visible',
+      transform: 'none',
+      background: '#ffffff',
+      zIndex: '-1',
+      pointerEvents: 'none',
     });
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    
-    // A4 dimensions in mm: 210 x 297
-    const pdf = new jsPDF('p', 'mm', 'a4');
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.removeAttribute('id');
+    Object.assign(clone.style, {
+      width: '210mm',
+      minWidth: '0',
+      maxWidth: '210mm',
+      minHeight: '297mm',
+      height: 'auto',
+      margin: '0',
+      transform: 'none',
+      transformOrigin: 'top left',
+      boxShadow: 'none',
+      overflow: 'visible',
+      boxSizing: 'border-box',
+      background: '#ffffff',
+      color: '#111827',
+    });
+    staging.appendChild(clone);
+    document.body.appendChild(staging);
+
+    // Wait for fonts and images before rasterizing, when browser APIs are available.
+    if ('fonts' in document) await document.fonts.ready;
+    const images = Array.from(clone.querySelectorAll('img'));
+    await Promise.all(images.map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>(resolve => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+    }));
+
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: Math.max(clone.scrollWidth, clone.clientWidth),
+      height: Math.max(clone.scrollHeight, clone.clientHeight),
+      windowWidth: Math.max(794, clone.scrollWidth),
+      scrollX: 0,
+      scrollY: 0,
+    });
+
+    if (!canvas.width || !canvas.height) throw new Error('The CV preview is empty. Add your details and try exporting again.');
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageWidth = 210;
     const pageHeight = 297;
-    
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
+    // Pixel height corresponding to one A4 page at the captured canvas scale.
+    const pagePixelHeight = Math.floor(canvas.width * pageHeight / pageWidth);
+    const pageCount = Math.max(1, Math.ceil(canvas.height / pagePixelHeight));
 
-    // First page
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    
-    if (!isWatermarkFree) {
-      pdf.setFontSize(8);
-      pdf.setTextColor(160, 160, 160);
-      pdf.text('Created with JOEASSIST (Free Edition) • Upgrade to remove watermark', 10, pageHeight - 5);
-    }
-    
-    heightLeft -= pageHeight;
-
-    // Multi-page slicing if document content exceeds single A4 page
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    for (let page = 0; page < pageCount; page++) {
+      if (page > 0) pdf.addPage('a4', 'portrait');
+      const startY = page * pagePixelHeight;
+      const sliceHeight = Math.min(pagePixelHeight, canvas.height - startY);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = pagePixelHeight;
+      const ctx = pageCanvas.getContext('2d');
+      if (!ctx) throw new Error('Could not prepare the PDF page.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(canvas, 0, startY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
       if (!isWatermarkFree) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(160, 160, 160);
-        pdf.text('Created with JOEASSIST (Free Edition) • Upgrade to remove watermark', 10, pageHeight - 5);
+        pdf.setFontSize(7);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text('Created with JOEASSIST (Free Edition) • Upgrade to remove watermark', 10, pageHeight - 4);
       }
-
-      heightLeft -= pageHeight;
     }
 
-    pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+    const safeName = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+    pdf.save(safeName);
     return true;
   } catch (error) {
-    console.error('Error generating PDF:', error);
-    // Do not call window.print here: that would print the entire application UI.
-    // The calling document page can offer its dedicated print-only action instead.
-    return false;
+    console.error('Error generating CV PDF:', error);
+    throw error;
+  } finally {
+    staging?.remove();
   }
 }
