@@ -453,8 +453,41 @@ export const CVBuilderPage: React.FC<CVBuilderPageProps> = ({
                   window.alert('Please click “Done & Improve CV” first. Model 1 must proofread the latest version before printing.');
                   return;
                 }
+                const printable = document.getElementById('cv-printable-area');
+                if (!printable) {
+                  window.alert('The CV preview is not ready to print yet. Please wait for it to finish loading.');
+                  return;
+                }
+                const originalStyles = new Map<HTMLElement, string | null>();
+                const rememberAndSet = (element: HTMLElement, cssText: string) => {
+                  if (!originalStyles.has(element)) originalStyles.set(element, element.getAttribute('style'));
+                  element.setAttribute('style', cssText);
+                };
+
+                // Remove every non-CV sibling from the print layout and neutralize
+                // scaled preview wrappers, so the page starts at the actual A4 top edge.
+                let current: HTMLElement = printable;
+                while (current.parentElement && current.parentElement !== document.body) {
+                  const parent = current.parentElement;
+                  Array.from(parent.children).forEach(child => {
+                    if (child !== current && child instanceof HTMLElement) {
+                      rememberAndSet(child, 'display:none !important');
+                    }
+                  });
+                  if (parent !== document.body) {
+                    rememberAndSet(parent, 'display:contents !important; transform:none !important; overflow:visible !important; width:auto !important; height:auto !important; max-width:none !important; min-height:0 !important; padding:0 !important; margin:0 !important;');
+                  }
+                  current = parent;
+                }
+
                 document.body.classList.add('printing-cv');
-                const cleanup = () => document.body.classList.remove('printing-cv');
+                const cleanup = () => {
+                  document.body.classList.remove('printing-cv');
+                  originalStyles.forEach((style, element) => {
+                    if (style === null) element.removeAttribute('style');
+                    else element.setAttribute('style', style);
+                  });
+                };
                 window.addEventListener('afterprint', cleanup, { once: true });
                 window.print();
               }}
