@@ -6,7 +6,7 @@ interface Env {
   SUPABASE_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
-  OPENROUTER_API_KEY?: string;
+  GROQ_API_KEY?: string;
   AI?: { run(model: string, inputs: Record<string, unknown>): Promise<any> };
   PAYSTACK_SECRET_KEY?: string;
   PAYSTACK_PUBLIC_KEY?: string;
@@ -21,8 +21,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const supportAttempts = new Map<string, { count: number; resetAt: number }>();
 const PLAN_PRICES_NGN = { premium: 4500, lifetime: 18500 } as const;
-const OPENROUTER_MODEL = 'google/gemma-4-26b-a4b-it:free';
-const WORKER_BUILD = 'openrouter-gemma-4-26b-a4b-free-2026-10-17';
+const GROQ_MODEL = 'openai/gpt-oss-20b';
+const WORKER_BUILD = 'groq-gpt-oss-20b-2026-10-17';
 type PlanTier = keyof typeof PLAN_PRICES_NGN;
 
 function json(data: unknown, status = 200): Response {
@@ -86,12 +86,12 @@ async function handleAPI(request: Request, env: Env): Promise<Response> {
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': url.origin, 'Access-Control-Allow-Headers': 'authorization, content-type, x-paystack-signature', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } });
 
   if (path === '/api/health' && method === 'GET') {
-    const hasOpenRouter = Boolean(env.OPENROUTER_API_KEY && env.OPENROUTER_API_KEY !== 'YOUR_OPENROUTER_API_KEY');
+    const hasGroq = Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY !== 'YOUR_GROQ_API_KEY');
     const hasWorkersAI = Boolean(env.AI && typeof env.AI.run === 'function');
     const hasPaystack = Boolean(env.PAYSTACK_SECRET_KEY);
     return json({ status: 'ok', appName: 'JOEASSIST', founder: 'Joseph Chiemezie', version: '1.2.0', build: WORKER_BUILD, services: {
       model1: { configured: hasWorkersAI, message: hasWorkersAI ? 'Cloudflare Workers AI binding is available' : 'Cloudflare Workers AI binding is missing from this deployment' },
-      model2: { configured: hasOpenRouter, model: OPENROUTER_MODEL, api: 'OpenRouter Chat Completions API', message: hasOpenRouter ? 'OpenRouter API key is available to the running Worker' : 'OPENROUTER_API_KEY is not available to the running Worker. Add it as a Worker secret and deploy.' },
+      model2: { configured: hasGroq, model: GROQ_MODEL, api: 'Groq Chat Completions API', message: hasGroq ? 'Groq API key is available to the running Worker' : 'GROQ_API_KEY is not available to the running Worker. Add it as a Worker secret and deploy.' },
       paystack: { configured: hasPaystack, publicKeyProvided: Boolean(env.PAYSTACK_PUBLIC_KEY || env.VITE_PAYSTACK_PUBLIC_KEY), message: hasPaystack ? 'Secret key configured' : 'PAYSTACK_SECRET_KEY is pending in server environment' },
       supabase: { url: env.SUPABASE_URL || DEFAULT_SUPABASE_URL, configured: true }
     } });
@@ -215,20 +215,18 @@ Write a natural, respectful, specific application letter body that connects only
             return json({ error: 'INVALID_AI_JSON', message: 'Model 1 returned an unreadable response. Please try again or choose Model 2.' }, 502);
           }
         }
-        const apiKey = env.OPENROUTER_API_KEY;
-        if (!apiKey || apiKey === 'YOUR_OPENROUTER_API_KEY') {
-          return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. Add OPENROUTER_API_KEY as a Cloudflare Worker secret.' }, 503);
+        const apiKey = env.GROQ_API_KEY;
+        if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
+          return json({ error: 'MODEL2_NOT_CONFIGURED', message: 'Model 2 is not configured yet. Add GROQ_API_KEY as a Cloudflare Worker secret.' }, 503);
         }
-        const providerResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const providerResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://joeassist.businessite.workers.dev',
-            'X-OpenRouter-Title': 'JOEASSIST'
           },
           body: JSON.stringify({
-            model: OPENROUTER_MODEL,
+            model: GROQ_MODEL,
             messages: [
               {
                 role: 'system',
@@ -243,7 +241,7 @@ Write a natural, respectful, specific application letter body that connects only
         });
         const providerData: any = await providerResponse.json().catch(() => ({}));
         if (!providerResponse.ok) {
-          const providerError = String(providerData?.error?.message || `OpenRouter API request failed with status ${providerResponse.status}`);
+          const providerError = String(providerData?.error?.message || `Groq API request failed with status ${providerResponse.status}`);
           throw Object.assign(new Error(providerError), {
             status: providerResponse.status,
             providerCode: providerData?.error?.code || null,
@@ -252,17 +250,17 @@ Write a natural, respectful, specific application letter body that connects only
         }
         const output = providerData?.choices?.[0]?.message?.content;
         if (typeof output !== 'string' || !output.trim()) {
-          console.error('OpenRouter returned no visible text:', JSON.stringify({
-            model: OPENROUTER_MODEL,
+          console.error('Groq returned no visible text:', JSON.stringify({
+            model: GROQ_MODEL,
             finishReason: providerData?.choices?.[0]?.finish_reason || null,
             usage: providerData?.usage || null
           }).slice(0, 500));
           return json({ error: 'EMPTY_AI_RESPONSE', message: 'Model 2 did not return usable text. Please retry or choose Model 1.' }, 502);
         }
         try {
-          return json({ success: true, data: JSON.parse(output), model: OPENROUTER_MODEL, usage: providerData?.usage || null });
+          return json({ success: true, data: JSON.parse(output), model: GROQ_MODEL, usage: providerData?.usage || null });
         } catch {
-          console.error('OpenRouter returned invalid JSON:', output.slice(0, 300));
+          console.error('Groq returned invalid JSON:', output.slice(0, 300));
           return json({ error: 'INVALID_AI_JSON', message: 'Model 2 returned an unreadable response. Please try again or choose Model 1.' }, 502);
         }
       } catch (error: any) {
@@ -274,39 +272,39 @@ Write a natural, respectful, specific application letter body that connects only
         const isRateLimitError = providerStatus === 429 || /\b429\b|rate.?limit|quota exceeded/i.test(errorMessage);
 
         if (isTemporaryCapacityError) {
-          console.error('OpenRouter temporarily unavailable:', JSON.stringify({
-            model: OPENROUTER_MODEL,
+          console.error('Groq temporarily unavailable:', JSON.stringify({
+            model: GROQ_MODEL,
             status: 503,
             message: errorMessage.slice(0, 500)
           }));
           return json({
-            error: 'GEMINI_TEMPORARILY_UNAVAILABLE',
-            message: 'OpenRouter is temporarily unavailable. Please wait a little and try again, or switch to Model 1.',
-            model: OPENROUTER_MODEL
+            error: 'MODEL2_TEMPORARILY_UNAVAILABLE',
+            message: 'Groq is temporarily unavailable. Please wait a little and try again, or switch to Model 1.',
+            model: GROQ_MODEL
           }, 503);
         }
 
         if (isRateLimitError) {
-          console.error('OpenRouter provider rate limit:', JSON.stringify({
-            model: OPENROUTER_MODEL,
+          console.error('Groq provider rate limit:', JSON.stringify({
+            model: GROQ_MODEL,
             status: 429,
             message: errorMessage.slice(0, 500)
           }));
           return json({
             error: 'AI_RATE_LIMITED',
-            message: 'OpenRouter has rate-limited this request or the account has reached its free-model limit. Check OpenRouter limits and try again later, or switch to Model 1.',
-            model: OPENROUTER_MODEL
+            message: 'Groq has rate-limited this request or the account has reached its free-model limit. Check Groq limits and try again later, or switch to Model 1.',
+            model: GROQ_MODEL
           }, 429);
         }
 
         console.error('AI request failed:', JSON.stringify({
-          model: OPENROUTER_MODEL,
+          model: GROQ_MODEL,
           status: providerStatus || null,
           message: errorMessage.slice(0, 700)
         }));
         return json({
           error: 'AI_REQUEST_FAILED',
-          message: 'OpenRouter could not complete this request. Check the API key, model availability, and OpenRouter limits, then retry or choose Model 1.'
+          message: 'Groq could not complete this request. Check the API key, model availability, and Groq limits, then retry or choose Model 1.'
         }, providerStatus >= 400 && providerStatus < 600 ? 502 : 500);
       }
     }
