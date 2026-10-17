@@ -78,7 +78,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   }, [cv.template_id, cvSignature]);
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">Loading uploaded HTML template…</div>;
-  return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top center', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
+  return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
     <iframe title="Uploaded CV template preview" sandbox="allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
   </div>;
 };
@@ -101,7 +101,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           overflowWrap: 'anywhere',
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         {customTpl.render(cv)}
@@ -314,7 +314,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           overflowWrap: 'anywhere',
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         <div className={`${bannerBg} px-8 py-7 text-white`}>
@@ -395,7 +395,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           overflowWrap: 'anywhere',
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         <div className="p-8">
@@ -491,7 +491,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         style={{
           width: '210mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         {/* Left Sidebar */}
@@ -587,7 +587,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           overflowWrap: 'anywhere',
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         <div className="text-center pb-5 mb-6 border-b border-blue-200">
@@ -640,7 +640,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           overflowWrap: 'anywhere',
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         <div className="text-center pb-4 mb-5 border-b-2 border-t-2 border-black py-4">
@@ -710,7 +710,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         overflowWrap: 'anywhere',
         minHeight: '297mm',
         transform: printMode ? 'none' : `scale(${scale})`,
-        transformOrigin: 'top center',
+        transformOrigin: 'top left',
       }}
     >
       {/* Header */}
