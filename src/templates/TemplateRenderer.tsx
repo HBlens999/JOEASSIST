@@ -186,7 +186,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
             <div className="flex justify-between items-baseline flex-wrap">
               <span className="font-semibold text-[13px] text-gray-900">{exp.jobTitle}</span>
               <span className="text-[12px] font-medium text-gray-700">
-                {exp.startDate} - {exp.isCurrent ? 'Present' : exp.endDate}
+                {exp.startDate} - {(exp.isCurrent || exp.endDate.trim().toLowerCase() === 'present') ? 'Present' : exp.endDate}
               </span>
             </div>
             <div className="text-[12px] font-medium text-blue-800 mb-1">
@@ -329,6 +329,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
         }}
       >
         <div className={`${bannerBg} px-8 py-7 text-white`}>
@@ -410,6 +411,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
         }}
       >
         <div className="p-8">
@@ -506,6 +508,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           width: '210mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
         }}
       >
         {/* Left Sidebar */}
@@ -602,6 +605,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
         }}
       >
         <div className="text-center pb-5 mb-6 border-b border-blue-200">
@@ -655,6 +659,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
           minHeight: '297mm',
           transform: printMode ? 'none' : `scale(${scale})`,
           transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
         }}
       >
         <div className="text-center pb-4 mb-5 border-b-2 border-t-2 border-black py-4">
@@ -725,6 +730,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ cv, scale = 
         minHeight: '297mm',
         transform: printMode ? 'none' : `scale(${scale})`,
         transformOrigin: 'top left',
+          '--cv-primary-color': primaryColor,
       }}
     >
       {/* Header */}
