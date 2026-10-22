@@ -32,6 +32,9 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   const projects = (cv.projects || []).map(project =>
     `<section style="margin:10px 0"><h3>${escapeTemplateValue(project.name)}</h3>${project.role ? `<p><strong>Role:</strong> ${escapeTemplateValue(project.role)}</p>` : ''}<p>${escapeTemplateValue(project.description)}</p>${project.url ? `<p>${escapeTemplateValue(project.url)}</p>` : ''}${project.technologies?.length ? `<p><strong>Tools / Skills:</strong> ${project.technologies.map(escapeTemplateValue).join(', ')}</p>` : ''}${project.keyAchievements?.length ? `<ul>${project.keyAchievements.map(item => `<li>${escapeTemplateValue(item)}</li>`).join('')}</ul>` : ''}</section>`
   ).join('');
+  // Only restore the official Tailwind Play CDN when the uploaded document explicitly depends on it.
+  // All uploaded scripts are still stripped below; the trusted runtime is injected after sanitization.
+  const needsTailwindRuntime = /<script\b[^>]*\bsrc\s*=\s*["']https:\/\/cdn\.tailwindcss\.com(?:\/[^"']*)?["'][^>]*>\s*<\/script\s*>/i.test(rawHtml);
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
     .replace(/<script\b[^>]*\/?\s*>/gi, '')
@@ -57,9 +60,11 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   for (const [key, value] of Object.entries(replacements)) {
     html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
   }
-  const security = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: https:; style-src \'unsafe-inline\' https:; font-src data: https:; base-uri \'none\'; form-action \'none\'">';
-  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}`);
-  else html = `<!doctype html><html><head>${security}<meta charset="utf-8"></head><body>${html}</body></html>`;
+  const scriptPolicy = needsTailwindRuntime ? " script-src https://cdn.tailwindcss.com;" : " script-src 'none';";
+  const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${scriptPolicy} base-uri 'none'; form-action 'none'">`;
+  const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
+  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}`);
+  else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}</head><body>${html}</body></html>`;
   return html;
 }
 
@@ -83,7 +88,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
   return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
-    <iframe title="Uploaded CV template preview" sandbox="allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
+    <iframe title="Uploaded CV template preview" sandbox="allow-scripts" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
   </div>;
 };
 
