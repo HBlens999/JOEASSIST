@@ -45,19 +45,33 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '$1="#"')
     .replace(/@import\s+[^;]+;?/gi, '')
     .replace(/url\(\s*(['"]?)javascript:[^)]*\)/gi, '');
-  const replacements: Record<string, string> = {
-    fullName: escapeTemplateValue(p.fullName || 'Your Name'),
-    professionalTitle: escapeTemplateValue(p.professionalTitle || 'Professional Title'),
-    email: escapeTemplateValue(p.email),
-    phone: escapeTemplateValue(p.phone),
-    location: escapeTemplateValue(p.location),
-    summary: escapeTemplateValue(cv.summary).replace(/\n/g, '<br>'),
-    experience,
-    education,
-    skills,
-    projects,
-  };
-  for (const [key, value] of Object.entries(replacements)) {
+  // Support both camelCase and common uppercase/underscore placeholders used in
+  // third-party HTML CVs, so imported designs bind to the live builder data.
+  const replacements: Array<[string, string]> = [
+    ['fullName', escapeTemplateValue(p.fullName || 'Your Name')],
+    ['FULL_NAME', escapeTemplateValue(p.fullName || 'Your Name')],
+    ['name', escapeTemplateValue(p.fullName || 'Your Name')],
+    ['professionalTitle', escapeTemplateValue(p.professionalTitle || 'Professional Title')],
+    ['PROFESSIONAL_TITLE', escapeTemplateValue(p.professionalTitle || 'Professional Title')],
+    ['jobTitle', escapeTemplateValue(p.professionalTitle || 'Professional Title')],
+    ['email', escapeTemplateValue(p.email)],
+    ['EMAIL', escapeTemplateValue(p.email)],
+    ['phone', escapeTemplateValue(p.phone)],
+    ['PHONE', escapeTemplateValue(p.phone)],
+    ['location', escapeTemplateValue(p.location)],
+    ['LOCATION', escapeTemplateValue(p.location)],
+    ['summary', escapeTemplateValue(cv.summary).replace(/\n/g, '<br>')],
+    ['SUMMARY', escapeTemplateValue(cv.summary).replace(/\n/g, '<br>')],
+    ['experience', experience],
+    ['WORK_EXPERIENCE', experience],
+    ['education', education],
+    ['EDUCATION', education],
+    ['skills', skills],
+    ['SKILLS', skills],
+    ['projects', projects],
+    ['PROJECTS', projects],
+  ];
+  for (const [key, value] of replacements) {
     html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
   }
   const scriptPolicy = needsTailwindRuntime ? " script-src https://cdn.tailwindcss.com;" : " script-src 'none';";
@@ -87,8 +101,8 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   }, [cv.template_id, cvSignature]);
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
-  return <div id="cv-printable-area" className="mx-auto bg-white shadow-2xl" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
-    <iframe title="Uploaded CV template preview" sandbox="allow-scripts" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, display: 'block', background: 'white' }} />
+  return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
+    <iframe title="Uploaded CV template preview" sandbox="allow-scripts" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, outline: 'none', display: 'block', background: 'white' }} />
   </div>;
 };
 
