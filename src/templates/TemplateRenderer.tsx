@@ -103,13 +103,21 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
         const oldName = firstParagraph[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim();
         const nameMatch = oldName.match(/[A-Z][A-Z'’-]+(?:\s+[A-Z][A-Z'’-]+){1,5}/);
         if (nameMatch) {
-          const flexibleName = nameMatch[0].split(/\s+/).join('(?:<[^>]*>|\s|&nbsp;|&#160;)*');
+          const flexibleName = nameMatch[0].split(/\s+/).join('(?:<[^>]*>|\\s|&nbsp;|&#160;)*');
           html = html.replace(new RegExp(flexibleName, 'i'), escapeTemplateValue(p.fullName));
         }
       }
     }
     // Replace literal contact details without changing their surrounding labels/styles.
     if (p.email) replaceTextValue(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, escapeTemplateValue(p.email));
+    if (p.location) {
+      const addressParagraph = /<p\b([^>]*)>(?:(?!<p\b)[\s\S])*?(?:address|location)\s*:?\s*(?:(?!<p\b)[\s\S])*?<\/p>/i;
+      html = html.replace(addressParagraph, (paragraph) => {
+        const open = paragraph.match(/^<p\b[^>]*>/i)?.[0] || '<p>';
+        const label = paragraph.match(/(?:Address|Location)\s*:?/i)?.[0] || 'Address:';
+        return open + '<b>' + label + '</b> ' + escapeTemplateValue(p.location) + '</p>';
+      });
+    }
     if (p.phone) {
       const phonePattern = /((?:phone|mobile|telephone)\s*:?\s*(?:<[^>]*>|&nbsp;|\s|<br\s*\/?>)*)[+()\d][+()\d .-]{6,}\d/i;
       html = html.replace(phonePattern, (_match, prefix) => prefix + escapeTemplateValue(p.phone));
@@ -257,8 +265,8 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // gold and lightgray). Its inline tailwind.config script is intentionally
   // stripped for safety, so provide those theme utilities as static CSS instead.
   const uploadedThemeCss = `<style>
-    html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; }
-    body { font-family: Inter, Arial, sans-serif; }
+    html, body { width: 210mm !important; max-width: 210mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; box-sizing: border-box !important; }
+    body { font-family: Inter, Arial, sans-serif; overflow-wrap: anywhere; word-wrap: break-word; }
     .bg-navy { background-color: #1B263B !important; }
     .text-navy { color: #1B263B !important; }
     .text-gold { color: #C5A880 !important; }
