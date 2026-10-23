@@ -76,9 +76,8 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   }
 
   // Bind the static Executive Navy demo sections to the live CV data too.
-  // The uploaded HTML is a finished sample rather than a placeholder-based template,
-  // so replace its demo summary, skills, education and experience sections explicitly.
-  if (/Executive Navy Resume/i.test(rawHtml) || /Jameson\\s+Caldwell/i.test(rawHtml)) {
+  // Use RegExp constructors so JSX/TSX transforms cannot misread escaped closing tags.
+  if (/Executive Navy Resume/i.test(rawHtml) || /Jameson\s+Caldwell/i.test(rawHtml)) {
     const listItems = (items: string[]) => items.filter(Boolean).map(item => `<li>${escapeTemplateValue(item)}</li>`).join('');
     const skillItems = (cv.skills || []).flatMap(group => (group.items || []).map(item => String(item || '').trim())).filter(Boolean);
     const educationHtml = (cv.education || []).map(item => `
@@ -97,12 +96,10 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
         <ul class="text-sm text-gray-700 list-disc list-outside ml-4 space-y-1">${listItems(item.bulletPoints || [])}</ul>
       </div>`).join('');
     const summaryHtml = escapeTemplateValue(cv.summary || '').replace(/\\n/g, '<br>');
-    html = html.replace(/(<h3[^>]*>\\s*Executive Summary\\s*<\\/h3>\\s*<p[^>]*>)[\\s\\S]*?(<\\/p>)/i, `$1${summaryHtml}$2`);
-    html = html.replace(/(<h3[^>]*>\\s*Core Competencies\\s*<\\/h3>\\s*<ul[^>]*>)[\\s\\S]*?(<\\/ul>)/i, `$1${listItems(skillItems)}$2`);
-    html = html.replace(/(<h3[^>]*>\\s*Education\\s*<\\/h3>)[\\s\\S]*?(?=\\n\\s*<\\/div>\\s*\\n\\s*<\\/aside>)/i, `$1${educationHtml}`);
-    html = html.replace(/(<h3[^>]*>\\s*Professional Experience\\s*<\\/h3>)[\\s\\S]*?(?=\\n\\s*<\\/div>\\s*\\n\\s*<\\/main>)/i, `$1${experienceHtml}`);
-    // If the user has no data for a section, do not leave fictional sample content behind.
-    if (!cv.summary) html = html.replace(/(<h3[^>]*>\\s*Executive Summary\\s*<\\/h3>\\s*<p[^>]*>)\\s*(<\\/p>)/i, '$1$2');
+    html = html.replace(new RegExp('(<h3[^>]*>\\s*Executive Summary\\s*</h3>\\s*<p[^>]*>)[\\s\\S]*?(</p>)', 'i'), `$1${summaryHtml}$2`);
+    html = html.replace(new RegExp('(<h3[^>]*>\\s*Core Competencies\\s*</h3>\\s*<ul[^>]*>)[\\s\\S]*?(</ul>)', 'i'), `$1${listItems(skillItems)}$2`);
+    html = html.replace(new RegExp('(<h3[^>]*>\\s*Education\\s*</h3>)[\\s\\S]*?(?=\\n\\s*</div>\\s*\\n\\s*</aside>)', 'i'), `$1${educationHtml}`);
+    html = html.replace(new RegExp('(<h3[^>]*>\\s*Professional Experience\\s*</h3>)[\\s\\S]*?(?=\\n\\s*</div>\\s*\\n\\s*</main>)', 'i'), `$1${experienceHtml}`);
   }
 
   // Replace the known demo profile shipped in the Executive Navy sample as well.
