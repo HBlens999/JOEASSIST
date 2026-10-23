@@ -322,7 +322,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   const frameHeight = Math.max(1122, documentHeight);
   return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere', position: 'relative' }}>
     {!frameReady && <div className="absolute z-10 m-3 rounded bg-white/95 px-3 py-2 text-xs text-gray-600 shadow">Loading uploaded CV styles…</div>}
-    {frameReady && <div aria-live="polite" className="sticky top-0 z-20 ml-auto w-fit rounded-bl-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow">{pageCount} {pageCount === 1 ? 'page' : 'pages'} · A4 preview</div>}
+    {frameReady && !printMode && <div aria-live="polite" className="sticky top-0 z-20 ml-auto w-fit rounded-bl-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow">{pageCount} {pageCount === 1 ? 'page' : 'pages'} · A4 preview</div>}
     <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: 'white', overflow: 'hidden' }} />
   </div>;
 };
