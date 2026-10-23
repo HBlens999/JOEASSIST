@@ -105,13 +105,24 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // Replace the known demo profile shipped in the Executive Navy sample as well.
   // This is deliberately limited to its exact sample strings; arbitrary uploaded
   // CV text is otherwise left untouched.
+  const displayName = String(p.fullName || 'Your Name').trim();
+  const nameParts = displayName.split(/\s+/);
+  const headerName = nameParts.length > 1
+    ? escapeTemplateValue(nameParts[0]) + '<br>' + escapeTemplateValue(nameParts.slice(1).join(' '))
+    : escapeTemplateValue(displayName);
+
+  // The demo heading splits the sample name with a <br>, so replace the
+  // whole heading rather than trying to match the name as plain text.
+  html = html.replace(/(<h1\b[^>]*>)[\s\S]*?(?:JAMESON|CALDWELL)[\s\S]*?(<\/h1>)/i,
+    (_match, openTag, closeTag) => openTag + headerName + closeTag);
+
   const sampleProfile: Array<[RegExp, string]> = [
-    [/Jameson\s+Caldwell/gi, escapeTemplateValue(p.fullName || 'Your Name')],
     [/Senior\s+Operations\s+Executive/gi, escapeTemplateValue(p.professionalTitle || 'Professional Title')],
     [/\+1\s*\(555\)\s*123[-\s]?4567/gi, escapeTemplateValue(p.phone)],
     [/j\.caldwell@email\.com/gi, escapeTemplateValue(p.email)],
     [/Chicago,?\s+IL\s+60601/gi, escapeTemplateValue(p.location)],
-    [/>(\s*)JC(\s*)</g, '>' + escapeTemplateValue((p.fullName || 'Your Name').split(/\s+/).map(part => part[0] || '').join('').slice(0, 2).toUpperCase()) + '<'],
+    [/linkedin\.com\/in\/jcaldwell/gi, escapeTemplateValue(p.linkedin || '')],
+    [/>(\s*)JC(\s*)</g, '>' + escapeTemplateValue(displayName.split(/\s+/).map(part => part[0] || '').join('').slice(0, 2).toUpperCase()) + '<'],
   ];
   for (const [pattern, value] of sampleProfile) {
     if (value) html = html.replace(pattern, value);
