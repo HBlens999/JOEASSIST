@@ -90,7 +90,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     if (value) html = html.replace(pattern, value);
   }
   const scriptPolicy = needsTailwindRuntime ? " script-src https://cdn.tailwindcss.com;" : " script-src 'none';";
-  const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${scriptPolicy} base-uri 'none'; form-action 'none'">`;
+  const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${needsTailwindRuntime ? " script-src 'unsafe-eval' https://cdn.tailwindcss.com;" : " script-src 'none';"} base-uri 'none'; form-action 'none'">`;
   const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
   if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}`);
   else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}</head><body>${html}</body></html>`;
@@ -100,11 +100,13 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
 const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; printMode: boolean }> = ({ cv, scale, printMode }) => {
   const [html, setHtml] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [frameReady, setFrameReady] = useState(false);
   const cvSignature = JSON.stringify(cv);
   useEffect(() => {
     let active = true;
     setLoadError('');
     setHtml('');
+    setFrameReady(false);
     const slug = cv.template_id.replace(/^uploaded_/, '');
     void supabase.from('custom_html_templates').select('html_content').eq('slug', slug).eq('is_active', true).maybeSingle()
       .then(({ data, error }) => {
@@ -117,7 +119,8 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
   return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
-    <iframe title="Uploaded CV template preview" sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, outline: 'none', display: 'block', background: 'white' }} />
+    {!frameReady && <div className="absolute z-10 m-3 rounded bg-white/95 px-3 py-2 text-xs text-gray-600 shadow">Loading uploaded CV styles…</div>}
+    <iframe title="Uploaded CV template preview" onLoad={() => setFrameReady(true)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, outline: 'none', display: 'block', background: 'white' }} />
   </div>;
 };
 
