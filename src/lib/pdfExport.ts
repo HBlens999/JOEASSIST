@@ -191,7 +191,7 @@ export async function exportElementToPDF(
     staging = document.createElement('div');
     Object.assign(staging.style, {
       position: 'fixed',
-      left: '-20000px',
+      left: '0',
       top: '0',
       width: '210mm',
       minHeight: '297mm',
@@ -199,7 +199,7 @@ export async function exportElementToPDF(
       overflow: 'visible',
       transform: 'none',
       background: '#ffffff',
-      zIndex: '-1',
+      zIndex: '2147483647',
       pointerEvents: 'none',
     });
 
