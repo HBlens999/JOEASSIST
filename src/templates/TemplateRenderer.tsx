@@ -89,7 +89,6 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   for (const [pattern, value] of sampleProfile) {
     if (value) html = html.replace(pattern, value);
   }
-  const scriptPolicy = needsTailwindRuntime ? " script-src https://cdn.tailwindcss.com;" : " script-src 'none';";
   const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${needsTailwindRuntime ? " script-src 'unsafe-eval' https://cdn.tailwindcss.com;" : " script-src 'none';"} base-uri 'none'; form-action 'none'">`;
   const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
   if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}`);
