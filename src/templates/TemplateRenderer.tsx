@@ -60,6 +60,16 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     ['PHONE', escapeTemplateValue(p.phone)],
     ['location', escapeTemplateValue(p.location)],
     ['LOCATION', escapeTemplateValue(p.location)],
+    ['linkedin', escapeTemplateValue(p.linkedin)],
+    ['LINKEDIN', escapeTemplateValue(p.linkedin)],
+    ['website', escapeTemplateValue(p.website)],
+    ['WEBSITE', escapeTemplateValue(p.website)],
+    ['github', escapeTemplateValue(p.github)],
+    ['GITHUB', escapeTemplateValue(p.github)],
+    ['certifications', (cv.certifications || []).map(item => '<li>' + escapeTemplateValue(item.name) + (item.issuingOrganization ? ' - ' + escapeTemplateValue(item.issuingOrganization) : '') + '</li>').join('')],
+    ['CERTIFICATIONS', (cv.certifications || []).map(item => '<li>' + escapeTemplateValue(item.name) + (item.issuingOrganization ? ' - ' + escapeTemplateValue(item.issuingOrganization) : '') + '</li>').join('')],
+    ['languages', (cv.languages || []).map(item => '<li>' + escapeTemplateValue(item.language) + (item.proficiency ? ' (' + escapeTemplateValue(item.proficiency) + ')' : '') + '</li>').join('')],
+    ['LANGUAGES', (cv.languages || []).map(item => '<li>' + escapeTemplateValue(item.language) + (item.proficiency ? ' (' + escapeTemplateValue(item.proficiency) + ')' : '') + '</li>').join('')],
     ['summary', escapeTemplateValue(cv.summary).replace(/\n/g, '<br>')],
     ['SUMMARY', escapeTemplateValue(cv.summary).replace(/\n/g, '<br>')],
     ['experience', experience],
@@ -95,7 +105,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
         <p class="text-sm font-semibold text-gray-600 mb-2">${escapeTemplateValue([item.company, item.location].filter(Boolean).join(' | '))}</p>
         <ul class="text-sm text-gray-700 list-disc list-outside ml-4 space-y-1">${listItems(item.bulletPoints || [])}</ul>
       </div>`).join('');
-    const summaryHtml = escapeTemplateValue(cv.summary || '').replace(/\\n/g, '<br>');
+    const summaryHtml = escapeTemplateValue(cv.summary || '').replace(/\n/g, '<br>');
     html = html.replace(new RegExp('(<h3[^>]*>\\s*Executive Summary\\s*</h3>\\s*<p[^>]*>)[\\s\\S]*?(</p>)', 'i'), `$1${summaryHtml}$2`);
     html = html.replace(new RegExp('(<h3[^>]*>\\s*Core Competencies\\s*</h3>\\s*<ul[^>]*>)[\\s\\S]*?(</ul>)', 'i'), `$1${listItems(skillItems)}$2`);
     html = html.replace(new RegExp('(<h3[^>]*>\\s*Education\\s*</h3>)[\\s\\S]*?(?=\\n\\s*</div>\\s*\\n\\s*</aside>)', 'i'), `$1${educationHtml}`);
