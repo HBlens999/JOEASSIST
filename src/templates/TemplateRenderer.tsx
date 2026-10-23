@@ -85,6 +85,72 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
   }
 
+
+  // Word/LibreOffice exports often contain the original CV as static text rather
+  // than placeholders. Bind common CV fields and section content as a fallback.
+  // Process sections from the bottom up so replacements do not invalidate offsets.
+  const hasTemplatePlaceholders = /\\{\\{\\s*(?:fullName|FULL_NAME|name|professionalTitle|PROFESSIONAL_TITLE|jobTitle|email|EMAIL|phone|PHONE|location|LOCATION|summary|SUMMARY|experience|WORK_EXPERIENCE|education|EDUCATION|skills|SKILLS)\\s*\\}\\}/i.test(rawHtml);
+  if (!hasTemplatePlaceholders && /<meta[^>]+(?:LibreOffice|Microsoft|Word)/i.test(rawHtml)) {
+    const replaceTextValue = (pattern: RegExp, value: string) => {
+      if (!value) return;
+      html = html.replace(pattern, value);
+    };
+    // The exported Word CV usually places the candidate name in its first paragraph.
+    if (p.fullName) {
+      const bodyStart = html.search(/<body\\b[^>]*>/i);
+      const firstParagraph = bodyStart >= 0 ? html.slice(bodyStart).match(/<p\\b[^>]*>[\\s\\S]*?<\\/p>/i) : null;
+      if (firstParagraph) {
+        const oldName = firstParagraph[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\\s+/g, ' ').trim();
+        const nameMatch = oldName.match(/[A-Z][A-Z'’-]+(?:\\s+[A-Z][A-Z'’-]+){1,5}/);
+        if (nameMatch) {
+          const flexibleName = nameMatch[0].split(/\\s+/).map(part => part.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\  // Bind the static Executive Navy demo sections to the live CV data too.')).join('(?:<[^>]*>|\\s|&nbsp;|&#160;)*');
+          html = html.replace(new RegExp(flexibleName, 'i'), escapeTemplateValue(p.fullName));
+        }
+      }
+    }
+    // Replace literal contact details without changing their surrounding labels/styles.
+    if (p.email) replaceTextValue(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i, escapeTemplateValue(p.email));
+    if (p.phone) {
+      const phonePattern = /((?:phone|mobile|telephone)\\s*:?\\s*(?:<[^>]*>|&nbsp;|\\s|<br\\s*\\/?>)*)[+()\\d][+()\\d .-]{6,}\\d/i;
+      html = html.replace(phonePattern, (_match, prefix) => prefix + escapeTemplateValue(p.phone));
+    }
+    // Bind Objective/Summary, Education and Work Experience sections in Word exports.
+    const headingMatches = [...html.matchAll(/<h[1-3]\\b[^>]*>[\\s\\S]*?<\\/h[1-3]>/gi)].map(match => ({
+      index: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      title: match[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\\s+/g, ' ').trim().toLowerCase(),
+    }));
+    const sectionReplacements: Array<{ index: number; end: number; value: string }> = [];
+    for (let i = 0; i < headingMatches.length; i++) {
+      const heading = headingMatches[i];
+      const nextHeading = headingMatches[i + 1];
+      const end = nextHeading ? nextHeading.index : html.search(/<\\/body\\s*>/i);
+      if (end <= heading.end) continue;
+      let value: string | null = null;
+      if (/(objective|professional summary|career summary|profile|professional profile)/i.test(heading.title) && cv.summary?.trim()) {
+        value = '<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(cv.summary).replace(/\\n/g, '<br>') + '</p>';
+      } else if (/(education|academic background|qualifications)/i.test(heading.title) && cv.education?.length) {
+        value = cv.education.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+          escapeTemplateValue([item.startDate, item.endDate].filter(Boolean).join(' - ')) + (item.startDate || item.endDate ? ' &nbsp; ' : '') +
+          escapeTemplateValue([item.institution, item.degree, item.fieldOfStudy].filter(Boolean).join(' — ')) +
+          (item.gradeGpa ? '<br>' + escapeTemplateValue(item.gradeGpa) : '') + '</b></p>').join('');
+      } else if (/(work experience|work experiences|professional experience|employment history|career history|experience)/i.test(heading.title) && cv.work_experience?.length) {
+        value = cv.work_experience.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+          escapeTemplateValue([item.jobTitle, item.company].filter(Boolean).join(' — ')) + '</b><br>' +
+          escapeTemplateValue([item.startDate, item.isCurrent ? 'Present' : item.endDate].filter(Boolean).join(' - ')) +
+          (item.location ? ' | ' + escapeTemplateValue(item.location) : '') +
+          ((item.bulletPoints || []).length ? '<ul style="margin:4px 0 0 20px">' + item.bulletPoints.map(point => '<li>' + escapeTemplateValue(point) + '</li>').join('') + '</ul>' : '') +
+          '</p>').join('');
+      } else if (/skills|competenc/i.test(heading.title) && cv.skills?.length) {
+        value = '<ul style="margin:0 0 8px 20px">' + cv.skills.flatMap(group => group.items || []).map(skill => '<li>' + escapeTemplateValue(skill) + '</li>').join('') + '</ul>';
+      }
+      if (value !== null) sectionReplacements.push({ index: heading.end, end, value });
+    }
+    for (const replacement of sectionReplacements.reverse()) {
+      html = html.slice(0, replacement.index) + replacement.value + html.slice(replacement.end);
+    }
+  }
+
   // Bind the static Executive Navy demo sections to the live CV data too.
   // Use RegExp constructors so JSX/TSX transforms cannot misread escaped closing tags.
   if (/Executive Navy Resume/i.test(rawHtml) || /Jameson\s+Caldwell/i.test(rawHtml)) {
@@ -163,12 +229,17 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   const [html, setHtml] = useState('');
   const [loadError, setLoadError] = useState('');
   const [frameReady, setFrameReady] = useState(false);
+  const [documentHeight, setDocumentHeight] = useState(1122);
+  const [pageCount, setPageCount] = useState(1);
+  const frameRef = React.useRef<HTMLIFrameElement>(null);
   const cvSignature = JSON.stringify(cv);
   useEffect(() => {
     let active = true;
     setLoadError('');
     setHtml('');
     setFrameReady(false);
+    setDocumentHeight(1122);
+    setPageCount(1);
     const slug = cv.template_id.replace(/^uploaded_/, '');
     void supabase.from('custom_html_templates').select('html_content').eq('slug', slug).eq('is_active', true).maybeSingle()
       .then(({ data, error }) => {
@@ -178,11 +249,25 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
       });
     return () => { active = false; };
   }, [cv.template_id, cvSignature]);
+  const measureDocument = () => {
+    const doc = frameRef.current?.contentDocument;
+    if (!doc) return;
+    const body = doc.body;
+    const root = doc.documentElement;
+    const height = Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, root?.scrollHeight || 0, root?.offsetHeight || 0, 1122);
+    // 1 A4 page is approximately 1122 CSS pixels at 96dpi. Account for small
+    // rounding differences so a single page is not incorrectly labelled as two.
+    setDocumentHeight(height);
+    setPageCount(Math.max(1, Math.ceil((height - 24) / 1122)));
+    setFrameReady(true);
+  };
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
-  return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
+  const frameHeight = Math.max(1122, documentHeight);
+  return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere', position: 'relative' }}>
     {!frameReady && <div className="absolute z-10 m-3 rounded bg-white/95 px-3 py-2 text-xs text-gray-600 shadow">Loading uploaded CV styles…</div>}
-    <iframe title="Uploaded CV template preview" onLoad={() => setFrameReady(true)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: '297mm', border: 0, outline: 'none', display: 'block', background: 'white' }} />
+    {frameReady && <div aria-live="polite" className="sticky top-0 z-20 ml-auto w-fit rounded-bl-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow">{pageCount} {pageCount === 1 ? 'page' : 'pages'} · A4 preview</div>}
+    <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: 'white', overflow: 'hidden' }} />
   </div>;
 };
 
