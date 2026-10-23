@@ -211,12 +211,16 @@ export async function exportElementToPDF(
       minWidth: '210mm',
       maxWidth: '210mm',
       minHeight: '297mm',
-      height: 'auto',
+      // Uploaded CVs are explicitly displayed inside a single A4 iframe. Keep
+      // that page at A4 dimensions during capture instead of inheriting the
+      // iframe body's viewport/min-height and accidentally creating blank pages.
+      height: frameDocument ? '297mm' : 'auto',
+      maxHeight: frameDocument ? '297mm' : 'none',
       margin: '0',
       transform: 'none',
       transformOrigin: 'top left',
       boxShadow: 'none',
-      overflow: 'visible',
+      overflow: frameDocument ? 'hidden' : 'visible',
       boxSizing: 'border-box',
       background: '#ffffff',
       color: '#000000',
@@ -244,7 +248,7 @@ export async function exportElementToPDF(
       logging: false,
       backgroundColor: '#ffffff',
       width: Math.max(clone.scrollWidth, clone.clientWidth),
-      height: Math.max(clone.scrollHeight, clone.clientHeight),
+      height: frameDocument ? Math.ceil(297 * 96 / 25.4) : Math.max(clone.scrollHeight, clone.clientHeight),
       windowWidth: Math.max(794, clone.scrollWidth),
       scrollX: 0,
       scrollY: 0,
