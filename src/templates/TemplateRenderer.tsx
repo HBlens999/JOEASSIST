@@ -74,6 +74,21 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   for (const [key, value] of replacements) {
     html = html.replace(new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'gi'), value);
   }
+
+  // Replace the known demo profile shipped in the Executive Navy sample as well.
+  // This is deliberately limited to its exact sample strings; arbitrary uploaded
+  // CV text is otherwise left untouched.
+  const sampleProfile: Array<[RegExp, string]> = [
+    [/Jameson\s+Caldwell/gi, escapeTemplateValue(p.fullName || 'Your Name')],
+    [/Senior\s+Operations\s+Executive/gi, escapeTemplateValue(p.professionalTitle || 'Professional Title')],
+    [/\+1\s*\(555\)\s*123[-\s]?4567/gi, escapeTemplateValue(p.phone)],
+    [/j\.caldwell@email\.com/gi, escapeTemplateValue(p.email)],
+    [/Chicago,?\s+IL\s+60601/gi, escapeTemplateValue(p.location)],
+    [/>(\s*)JC(\s*)</g, '>' + escapeTemplateValue((p.fullName || 'Your Name').split(/\s+/).map(part => part[0] || '').join('').slice(0, 2).toUpperCase()) + '<'],
+  ];
+  for (const [pattern, value] of sampleProfile) {
+    if (value) html = html.replace(pattern, value);
+  }
   const scriptPolicy = needsTailwindRuntime ? " script-src https://cdn.tailwindcss.com;" : " script-src 'none';";
   const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${scriptPolicy} base-uri 'none'; form-action 'none'">`;
   const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
