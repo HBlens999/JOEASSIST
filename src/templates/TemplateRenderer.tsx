@@ -89,7 +89,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // Word/LibreOffice exports often contain the original CV as static text rather
   // than placeholders. Bind common CV fields and section content as a fallback.
   // Process sections from the bottom up so replacements do not invalidate offsets.
-  const hasTemplatePlaceholders = /\\{\\{\\s*(?:fullName|FULL_NAME|name|professionalTitle|PROFESSIONAL_TITLE|jobTitle|email|EMAIL|phone|PHONE|location|LOCATION|summary|SUMMARY|experience|WORK_EXPERIENCE|education|EDUCATION|skills|SKILLS)\\s*\\}\\}/i.test(rawHtml);
+  const hasTemplatePlaceholders = /\{\{\s*(?:fullName|FULL_NAME|name|professionalTitle|PROFESSIONAL_TITLE|jobTitle|email|EMAIL|phone|PHONE|location|LOCATION|summary|SUMMARY|experience|WORK_EXPERIENCE|education|EDUCATION|skills|SKILLS)\s*\}\}/i.test(rawHtml);
   if (!hasTemplatePlaceholders && /<meta[^>]+(?:LibreOffice|Microsoft|Word)/i.test(rawHtml)) {
     const replaceTextValue = (pattern: RegExp, value: string) => {
       if (!value) return;
@@ -97,13 +97,61 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     };
     // The exported Word CV usually places the candidate name in its first paragraph.
     if (p.fullName) {
-      const bodyStart = html.search(/<body\\b[^>]*>/i);
-      const firstParagraph = bodyStart >= 0 ? html.slice(bodyStart).match(/<p\\b[^>]*>[\\s\\S]*?<\\/p>/i) : null;
+      const bodyStart = html.search(/<body\b[^>]*>/i);
+      const firstParagraph = bodyStart >= 0 ? html.slice(bodyStart).match(/<p\b[^>]*>[\s\S]*?<\/p>/i) : null;
       if (firstParagraph) {
-        const oldName = firstParagraph[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\\s+/g, ' ').trim();
-        const nameMatch = oldName.match(/[A-Z][A-Z'’-]+(?:\\s+[A-Z][A-Z'’-]+){1,5}/);
+        const oldName = firstParagraph[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim();
+        const nameMatch = oldName.match(/[A-Z][A-Z'’-]+(?:\s+[A-Z][A-Z'’-]+){1,5}/);
         if (nameMatch) {
-          const flexibleName = nameMatch[0].split(/\\s+/).map(part => part.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\  // Bind the static Executive Navy demo sections to the live CV data too.')).join('(?:<[^>]*>|\\s|&nbsp;|&#160;)*');
+          const flexibleName = nameMatch[0].split(/\s+/).join('(?:<[^>]*>|\s|&nbsp;|&#160;)*');
+          html = html.replace(new RegExp(flexibleName, 'i'), escapeTemplateValue(p.fullName));
+        }
+      }
+    }
+    // Replace literal contact details without changing their surrounding labels/styles.
+    if (p.email) replaceTextValue(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, escapeTemplateValue(p.email));
+    if (p.phone) {
+      const phonePattern = /((?:phone|mobile|telephone)\s*:?\s*(?:<[^>]*>|&nbsp;|\s|<br\s*\/?>)*)[+()\d][+()\d .-]{6,}\d/i;
+      html = html.replace(phonePattern, (_match, prefix) => prefix + escapeTemplateValue(p.phone));
+    }
+    // Bind Objective/Summary, Education and Work Experience sections in Word exports.
+    const headingMatches = [...html.matchAll(/<h[1-3]\b[^>]*>[\s\S]*?<\/h[1-3]>/gi)].map(match => ({
+      index: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      title: match[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase(),
+    }));
+    const sectionReplacements: Array<{ index: number; end: number; value: string }> = [];
+    for (let i = 0; i < headingMatches.length; i++) {
+      const heading = headingMatches[i];
+      const nextHeading = headingMatches[i + 1];
+      const end = nextHeading ? nextHeading.index : html.search(/<\/body\s*>/i);
+      if (end <= heading.end) continue;
+      let value: string | null = null;
+      if (/(objective|professional summary|career summary|profile|professional profile)/i.test(heading.title) && cv.summary?.trim()) {
+        value = '<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(cv.summary).replace(/\n/g, '<br>') + '</p>';
+      } else if (/(education|academic background|qualifications)/i.test(heading.title) && cv.education?.length) {
+        value = cv.education.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+          escapeTemplateValue([item.startDate, item.endDate].filter(Boolean).join(' - ')) + (item.startDate || item.endDate ? ' &nbsp; ' : '') +
+          escapeTemplateValue([item.institution, item.degree, item.fieldOfStudy].filter(Boolean).join(' — ')) +
+          (item.gradeGpa ? '<br>' + escapeTemplateValue(item.gradeGpa) : '') + '</b></p>').join('');
+      } else if (/(work experience|work experiences|professional experience|employment history|career history|experience)/i.test(heading.title) && cv.work_experience?.length) {
+        value = cv.work_experience.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+          escapeTemplateValue([item.jobTitle, item.company].filter(Boolean).join(' — ')) + '</b><br>' +
+          escapeTemplateValue([item.startDate, item.isCurrent ? 'Present' : item.endDate].filter(Boolean).join(' - ')) +
+          (item.location ? ' | ' + escapeTemplateValue(item.location) : '') +
+          ((item.bulletPoints || []).length ? '<ul style="margin:4px 0 0 20px">' + item.bulletPoints.map(point => '<li>' + escapeTemplateValue(point) + '</li>').join('') + '</ul>' : '') +
+          '</p>').join('');
+      } else if (/skills|competenc/i.test(heading.title) && cv.skills?.length) {
+        value = '<ul style="margin:0 0 8px 20px">' + cv.skills.flatMap(group => group.items || []).map(skill => '<li>' + escapeTemplateValue(skill) + '</li>').join('') + '</ul>';
+      }
+      if (value !== null) sectionReplacements.push({ index: heading.end, end, value });
+    }
+    for (const replacement of sectionReplacements.reverse()) {
+      html = html.slice(0, replacement.index) + replacement.value + html.slice(replacement.end);
+    }
+  }
+
+  // Bind the static Executive Navy demo sections to the live CV data too.')).join('(?:<[^>]*>|\\s|&nbsp;|&#160;)*');
           html = html.replace(new RegExp(flexibleName, 'i'), escapeTemplateValue(p.fullName));
         }
       }
