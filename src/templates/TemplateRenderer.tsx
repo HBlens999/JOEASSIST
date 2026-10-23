@@ -91,8 +91,23 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   }
   const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${needsTailwindRuntime ? " script-src 'unsafe-eval' https://cdn.tailwindcss.com;" : " script-src 'none';"} base-uri 'none'; form-action 'none'">`;
   const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
-  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}`);
-  else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}</head><body>${html}</body></html>`;
+  // The original uploaded "Test" CV uses custom Tailwind theme names (navy,
+  // gold and lightgray). Its inline tailwind.config script is intentionally
+  // stripped for safety, so provide those theme utilities as static CSS instead.
+  const uploadedThemeCss = `<style>
+    html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; }
+    body { font-family: Inter, Arial, sans-serif; }
+    .bg-navy { background-color: #1B263B !important; }
+    .text-navy { color: #1B263B !important; }
+    .text-gold { color: #C5A880 !important; }
+    .border-gold { border-color: #C5A880 !important; }
+    .bg-lightgray { background-color: #F3F4F6 !important; }
+    .font-serif { font-family: Georgia, serif !important; }
+    .font-sans { font-family: Inter, Arial, sans-serif !important; }
+    .page { margin: 0 auto !important; border: 0 !important; outline: 0 !important; }
+  </style>`;
+  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
+  else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}${uploadedThemeCss}</head><body>${html}</body></html>`;
   return html;
 }
 
