@@ -384,8 +384,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setCurrentTab })
                 Mark as Pro template
               </label>
             </div>
-            <div className="rounded-xl border border-blue-100 bg-white p-3 text-[11px] text-gray-600">
-              <strong>Supported placeholders:</strong> <code>{'{{fullName}}'}</code>, <code>{'{{professionalTitle}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{phone}}'}</code>, <code>{'{{location}}'}</code>, <code>{'{{summary}}'}</code>, <code>{'{{experience}}'}</code>, <code>{'{{education}}'}</code>, and <code>{'{{skills}}'}</code>.
+            <div className="rounded-xl border border-blue-100 bg-white p-3 text-[11px] leading-relaxed text-gray-600 space-y-2">
+              <strong className="block text-gray-800">Supported placeholders (use these where user information should appear):</strong>
+              <p><strong>Personal:</strong> <code>{'{{fullName}}'}</code>, <code>{'{{professionalTitle}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{phone}}'}</code>, <code>{'{{location}}'}</code>, <code>{'{{linkedin}}'}</code>, <code>{'{{website}}'}</code>, <code>{'{{github}}'}</code>, <code>{'{{summary}}'}</code>.</p>
+              <p><strong>Sections:</strong> <code>{'{{experience}}'}</code>, <code>{'{{education}}'}</code>, <code>{'{{skills}}'}</code>, <code>{'{{projects}}'}</code>, <code>{'{{certifications}}'}</code>, <code>{'{{languages}}'}</code>.</p>
+              <p className="text-amber-700"><strong>Important:</strong> Keep the design's HTML/CSS, but replace sample names, contact details, work history and education with these placeholders before uploading. Static sample text cannot reliably become each user's information automatically. Use A4/210mm page width, avoid fixed heights that clip content, and test both preview and PDF export before publishing a template.</p>
             </div>
             {templateError && <p role="alert" className="text-xs font-semibold text-red-600">{templateError}</p>}
             {templateMessage && <p role="status" className="text-xs font-semibold text-emerald-700">{templateMessage}</p>}
