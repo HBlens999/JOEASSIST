@@ -6,6 +6,77 @@ export interface PDFExportOptions {
   isWatermarkFree?: boolean;
 }
 
+/** Wait for an uploaded srcDoc iframe to finish loading its document and resources. */
+async function waitForIframeReady(frame: HTMLIFrameElement, timeoutMs = 15000): Promise<Document> {
+  const getDocument = () => {
+    try {
+      return frame.contentDocument;
+    } catch {
+      return null;
+    }
+  };
+  let doc = getDocument();
+  if (!doc) {
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('The uploaded CV preview is still loading. Please wait a moment and try again.'));
+      }, timeoutMs);
+      const onLoad = () => {
+        cleanup();
+        resolve();
+      };
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        frame.removeEventListener('load', onLoad);
+      };
+      frame.addEventListener('load', onLoad, { once: true });
+      // Handle the case where the document became available just before listener registration.
+      if (getDocument()) {
+        cleanup();
+        resolve();
+      }
+    });
+    doc = getDocument();
+  }
+
+  if (!doc?.body) {
+    throw new Error('The uploaded CV preview has not finished loading. Please wait a moment and try again.');
+  }
+
+  if (doc.readyState !== 'complete') {
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('The uploaded CV styles are taking too long to load. Please wait and try again.'));
+      }, timeoutMs);
+      const onLoad = () => {
+        cleanup();
+        resolve();
+      };
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        doc?.defaultView?.removeEventListener('load', onLoad);
+      };
+      doc?.defaultView?.addEventListener('load', onLoad, { once: true });
+      if (doc?.readyState === 'complete') {
+        cleanup();
+        resolve();
+      }
+    });
+  }
+
+  if (doc.fonts?.ready) await doc.fonts.ready;
+  await Promise.all(Array.from(doc.images).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      img.addEventListener('load', () => resolve(), { once: true });
+      img.addEventListener('error', () => resolve(), { once: true });
+    });
+  }));
+  return doc;
+}
+
 const unsupportedColorFunctions = /(?:oklch|oklab|lch|lab|color-mix)\([^)]*\)/gi;
 
 function oklchToRgb(value: string): string | null {
@@ -112,10 +183,10 @@ export async function exportElementToPDF(
 
   try {
     const frame = element.querySelector('iframe') as HTMLIFrameElement | null;
-    const source = frame?.contentDocument?.body || element;
-    if (frame && !frame.contentDocument?.body) {
-      throw new Error('The selected uploaded template has not finished loading. Please wait a moment and try again.');
-    }
+    // Uploaded HTML (especially CDN-powered Tailwind templates) may create its
+    // body before CSS/fonts/images finish loading. Wait before cloning for PDF.
+    const frameDocument = frame ? await waitForIframeReady(frame) : null;
+    const source = frameDocument?.body || element;
 
     staging = document.createElement('div');
     Object.assign(staging.style, {
