@@ -407,14 +407,14 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .gap-4 { gap: 1rem !important; }
     .gap-8 { gap: 2rem !important; }
     .w-full { width: 100% !important; }
-    .w-2\/3 { width: 66.666667% !important; }
-    .w-1\/3 { width: 33.333333% !important; }
+    [class~="w-2/3"] { width: 66.666667% !important; }
+    [class~="w-1/3"] { width: 33.333333% !important; }
     .w-32 { width: 8rem !important; }
     .w-5 { width: 1.25rem !important; }
     .h-full { height: 100% !important; }
     .h-32 { height: 8rem !important; }
     .h-5 { height: 1.25rem !important; }
-    .h-1\.5 { height: .375rem !important; }
+    [class~="h-1.5"] { height: .375rem !important; }
     .p-6 { padding: 1.5rem !important; }
     .p-8 { padding: 2rem !important; }
     .p-10 { padding: 2.5rem !important; }
@@ -448,7 +448,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: .25rem !important; }
     .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: .5rem !important; }
     .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: .75rem !important; }
-    .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: .375rem !important; }
+    [class~="space-y-1.5"] > :not([hidden]) ~ :not([hidden]) { margin-top: .375rem !important; }
     .font-light { font-weight: 300 !important; }
     .font-medium { font-weight: 500 !important; }
     .font-semibold { font-weight: 600 !important; }
