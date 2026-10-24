@@ -174,7 +174,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
       // This imported document has static sample-only sections such as Industrial Training
       // and Personal Details. Remove unsupported headings and their content rather than
       // presenting information the current user never entered.
-      if (recognized || !recognized) sectionReplacements.push({ index: heading.index, end: sectionEnd, value });
+      // Always replace each imported section: mapped sections get live data, and all other sections are removed.\n      sectionReplacements.push({ index: heading.index, end: sectionEnd, value });
     }
     for (const replacement of sectionReplacements.reverse()) {
       html = html.slice(0, replacement.index) + replacement.value + html.slice(replacement.end);
@@ -186,7 +186,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   const layoutFix = `<style id="joeassist-uploaded-a4">
     html { width: 100%; min-width: 0; box-sizing: border-box; background: #e9eef5; }
     *, *::before, *::after { box-sizing: border-box; }
-    body { width: 186mm !important; min-width: 0 !important; max-width: 186mm !important; margin: 0 auto !important; padding: 0 !important; overflow-wrap: anywhere; word-break: normal; background: transparent; }
+    body { width: 210mm !important; min-width: 0 !important; max-width: 210mm !important; margin: 0 auto !important; padding: 0 !important; overflow-wrap: anywhere; word-break: normal; background: transparent; }
     body > * { max-width: 100%; }
     p, h1, h2, h3, h4, table, ul, ol, div { max-width: 100%; }
     p, h1, h2, h3, h4 { margin-right: 0 !important; }
