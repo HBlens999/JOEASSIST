@@ -187,31 +187,31 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // Strip the unsupported personal-details block from uploaded CVs regardless of
   // whether Word exported it as table rows, paragraphs, or simple divs. These fields
   // are not collected by the JOEASSIST CV form and must never leak from template samples.
-  const personalDetailField = /(?:date\\s+of\\s+birth|marital\\s+status|state\\s+of\\s+origin|gender|nationality|l\\.?\\s*g\\.?\\s*a\\.?|language)\\s*:?/i;
+  const personalDetailField = /(?:date\s+of\s+birth|marital\s+status|state\s+of\s+origin|gender|nationality|l\.?\s*g\.?\s*a\.?|language)\s*:?/i;
   const plainText = (markup: string) => markup
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;|&#160;|&amp;/gi, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
   // A table row may contain one or several of the imported fields.
-  html = html.replace(/<tr\\b[^>]*>[\\s\\S]*?<\\/tr\\s*>/gi, row => {
+  html = html.replace(/<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi, row => {
     const text = plainText(row);
-    return /personal\\s+details/i.test(text) || personalDetailField.test(text) ? '' : row;
+    return /personal\s+details/i.test(text) || personalDetailField.test(text) ? '' : row;
   });
   // Word normally wraps each detail in a paragraph; remove the entire paragraph,
   // including cases where multiple details are separated by <br> in one paragraph.
-  html = html.replace(/<(p|li)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, block => {
+  html = html.replace(/<(p|li)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, block => {
     const text = plainText(block);
-    return /^personal\\s+details\\s*:?$/i.test(text) || personalDetailField.test(text) ? '' : block;
+    return /^personal\s+details\s*:?$/i.test(text) || personalDetailField.test(text) ? '' : block;
   });
   // Also catch simple, non-nested divs used by some HTML exports without removing
   // larger layout containers that may hold the rest of the CV.
-  html = html.replace(/<div\\b[^>]*>(?:(?!<(?:div|p|table|section|article|ul|ol)\\b)[\\s\\S])*?<\\/div\\s*>/gi, block => {
+  html = html.replace(/<div\b[^>]*>(?:(?!<(?:div|p|table|section|article|ul|ol)\b)[\s\S])*?<\/div\s*>/gi, block => {
     const text = plainText(block);
-    return /^personal\\s+details\\s*:?$/i.test(text) || personalDetailField.test(text) ? '' : block;
+    return /^personal\s+details\s*:?$/i.test(text) || personalDetailField.test(text) ? '' : block;
   });
   // Remove a standalone heading if its detail paragraphs have already been stripped.
-  html = html.replace(/<(h[1-6]|p|strong|b|span)\\b[^>]*>\\s*PERSONAL\\s+DETAILS\\s*:?[\\s\\u00a0]*<\\/\\1\\s*>/gi, '');
+  html = html.replace(/<(h[1-6]|p|strong|b|span)\b[^>]*>\s*PERSONAL\s+DETAILS\s*:?[\s\u00a0]*<\/\1\s*>/gi, '');
 
   // Normalize Word/LibreOffice HTML for an on-screen A4 page. Word's print margins
   // and fixed paragraph indents often overflow a browser iframe at screen dimensions.
