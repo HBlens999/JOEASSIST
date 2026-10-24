@@ -384,7 +384,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // The original uploaded "Test" CV uses custom Tailwind theme names (navy,
   // gold and lightgray). Its inline tailwind.config script is intentionally
   // stripped for safety, so provide those theme utilities as static CSS instead.
-  const uploadedThemeCss = \`<style>
+  const uploadedThemeCss = `<style>
     html, body { width: 210mm !important; max-width: 210mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; box-sizing: border-box !important; }
     body { font-family: Inter, Arial, sans-serif; overflow-wrap: anywhere; word-wrap: break-word; }
     *, *::before, *::after { box-sizing: border-box; }
@@ -483,7 +483,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .text-navy { color: #1B263B !important; }
     .text-gold { color: #C5A880 !important; }
     .border-gold { border-color: #C5A880 !important; }
-  </style>\`;  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
+  </style>`;  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
   else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}${uploadedThemeCss}</head><body>${html}</body></html>`;
   return html;
 }
