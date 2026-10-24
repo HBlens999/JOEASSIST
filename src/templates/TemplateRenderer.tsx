@@ -127,11 +127,13 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
       });
     }
     // Bind Objective/Summary, Education and Work Experience sections in Word exports.
-    const headingMatches = [...html.matchAll(/<h[1-3]\b[^>]*>[\s\S]*?<\/h[1-3]>/gi)].map(match => ({
-      index: match.index ?? 0,
-      end: (match.index ?? 0) + match[0].length,
-      title: match[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase(),
-    }));
+    const knownSectionTitle = /^(objective|career objective|professional objective|summary|professional summary|career summary|profile|professional profile|education|educational background|academic background|qualifications|work experience|work experiences|professional experience|employment history|career history|experience|skills|technical skills|core competencies|competencies|projects|personal projects|certifications|certificates|licenses|licences|accreditations|languages|awards|honours|honors|references|personal details|personal information|industrial training|internship|internships|training|volunteer experience)$/i;
+    const headingMatches = [...html.matchAll(/<(h[1-6]|p)\b[^>]*>[\s\S]*?<\/\1>/gi)]
+      .map(match => {
+        const title = match[0].replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;|&amp;/gi, ' ').replace(/\s+/g, ' ').trim().replace(/[:：]+$/, '').toLowerCase();
+        return { index: match.index ?? 0, end: (match.index ?? 0) + match[0].length, title };
+      })
+      .filter(match => knownSectionTitle.test(match.title));
     const sectionReplacements: Array<{ index: number; end: number; value: string }> = [];
     for (let i = 0; i < headingMatches.length; i++) {
       const heading = headingMatches[i];
@@ -141,9 +143,10 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
       let value = '';
       let recognized = false;
       const liveSection = (content: string) => html.slice(heading.index, heading.end) + content;
-      if (/(objective|professional summary|career summary|profile|professional profile)/i.test(heading.title)) {
+      if (/(objective|summary|profile)/i.test(heading.title)) {
         recognized = true;
-        if (cv.summary?.trim()) value = liveSection('<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(cv.summary).replace(/\n/g, '<br>') + '</p>');
+        const objectiveText = cv.career_objective?.trim() || cv.summary?.trim() || '';
+        if (objectiveText) value = liveSection('<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(objectiveText).replace(/\n/g, '<br>') + '</p>');
       } else if (/(education|academic background|qualifications)/i.test(heading.title)) {
         recognized = true;
         if (cv.education?.length) value = liveSection(cv.education.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
