@@ -108,10 +108,10 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
         }
       }
     }
-    // Replace literal contact details without changing their surrounding labels/styles.
+    // Replace whole contact paragraphs so extra sample phone numbers or addresses cannot leak through.
     if (p.email) replaceTextValue(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, escapeTemplateValue(p.email));
     if (p.location) {
-      const addressParagraph = /<p\b([^>]*)>(?:(?!<p\b)[\s\S])*?(?:address|location)\s*:?\s*(?:(?!<p\b)[\s\S])*?<\/p>/i;
+      const addressParagraph = /<p\b[^>]*>(?:(?!<p\b)[\s\S])*?(?:address|location)\s*:?(?:(?!<p\b)[\s\S])*?<\/p>/i;
       html = html.replace(addressParagraph, (paragraph) => {
         const open = paragraph.match(/^<p\b[^>]*>/i)?.[0] || '<p>';
         const label = paragraph.match(/(?:Address|Location)\s*:?/i)?.[0] || 'Address:';
@@ -119,8 +119,12 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
       });
     }
     if (p.phone) {
-      const phonePattern = /((?:phone|mobile|telephone)\s*:?\s*(?:<[^>]*>|&nbsp;|\s|<br\s*\/?>)*)[+()\d][+()\d .-]{6,}\d/i;
-      html = html.replace(phonePattern, (_match, prefix) => prefix + escapeTemplateValue(p.phone));
+      const phoneParagraph = /<p\b[^>]*>(?:(?!<p\b)[\s\S])*?(?:phone|mobile|telephone)\s*:?(?:(?!<p\b)[\s\S])*?<\/p>/i;
+      html = html.replace(phoneParagraph, (paragraph) => {
+        const open = paragraph.match(/^<p\b[^>]*>/i)?.[0] || '<p>';
+        const label = paragraph.match(/(?:Phone|Mobile|Telephone)\s*:?/i)?.[0] || 'Phone:';
+        return open + '<b>' + label + '</b> ' + escapeTemplateValue(p.phone) + '</p>';
+      });
     }
     // Bind Objective/Summary, Education and Work Experience sections in Word exports.
     const headingMatches = [...html.matchAll(/<h[1-3]\b[^>]*>[\s\S]*?<\/h[1-3]>/gi)].map(match => ({
@@ -158,6 +162,23 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
       html = html.slice(0, replacement.index) + replacement.value + html.slice(replacement.end);
     }
   }
+
+  // Normalize Word/LibreOffice HTML for an on-screen A4 page. Word's print margins
+  // and fixed paragraph indents often overflow a browser iframe at screen dimensions.
+  const layoutFix = `<style id="joeassist-uploaded-a4">
+    html { width: 100%; min-width: 0; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { width: 100% !important; min-width: 0 !important; max-width: 100% !important; margin: 0 !important; padding: 10mm 12mm 12mm !important; overflow-wrap: anywhere; word-break: normal; }
+    p, h1, h2, h3, h4, table, ul, ol, div { max-width: 100%; }
+    p, h1, h2, h3, h4 { margin-right: 0 !important; }
+    img, table { max-width: 100% !important; }
+    table { table-layout: fixed; }
+    td, th { overflow-wrap: anywhere; }
+    @page { size: A4 portrait; margin: 0; }
+    @media screen { body { min-height: 0 !important; } }
+  </style>`;
+  if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, layoutFix + '</head>');
+  else html = layoutFix + html;
 
   // Bind the static Executive Navy demo sections to the live CV data too.
   // Use RegExp constructors so JSX/TSX transforms cannot misread escaped closing tags.
@@ -263,10 +284,10 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
     const body = doc.body;
     const root = doc.documentElement;
     const height = Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, root?.scrollHeight || 0, root?.offsetHeight || 0, 1122);
-    // 1 A4 page is approximately 1122 CSS pixels at 96dpi. Account for small
-    // rounding differences so a single page is not incorrectly labelled as two.
+    // Estimate page count from the normalized A4 content height; this remains an
+    // estimate for imported HTML with manual page breaks, not a PDF pagination engine.
     setDocumentHeight(height);
-    setPageCount(Math.max(1, Math.ceil((height - 24) / 1122)));
+    setPageCount(Math.max(1, Math.ceil((height - 40) / 1122)));
     setFrameReady(true);
   };
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
