@@ -284,6 +284,101 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   for (const [pattern, value] of sampleProfile) {
     if (value) html = html.replace(pattern, value);
   }
+  // The uploaded "professional green" template is a static sample, not a placeholder-based template.
+  // Bind its existing design blocks to the active CV and restore its custom green theme colors
+  // because the template's inline Tailwind configuration is intentionally stripped for safety.
+  const isProfessionalGreen = /Professional Green Resume|Olivia Bennett|bg-forest|text-lightgreen/i.test(rawHtml);
+  if (isProfessionalGreen) {
+    const displayText = (value: unknown) => escapeTemplateValue(String(value ?? '').trim());
+    const objectiveText = String(cv.career_objective || cv.summary || '').trim();
+
+    // Keep the source header's typography/layout, but replace the example candidate and role.
+    html = html.replace(/(<header\b[\s\S]*?<h1\b[^>]*>)[\s\S]*?(<\/h1>)/i,
+      (_match, openTag, closeTag) => openTag + displayText(p.fullName || 'Your Name') + closeTag);
+    html = html.replace(/(<header\b[\s\S]*?<h2\b[^>]*>)[\s\S]*?(<\/h2>)/i,
+      (_match, openTag, closeTag) => openTag + displayText(p.professionalTitle || '') + closeTag);
+
+    // Replace every example contact item as one unit so none of Olivia's details remain.
+    const contactItems = [
+      p.phone,
+      p.email,
+      p.location,
+      p.linkedin || p.website || p.github,
+    ].map(value => String(value || '').trim()).filter(Boolean);
+    const contactHtml = contactItems.map(value => '<span>' + displayText(value) + '</span>').join('<span aria-hidden="true">•</span>');
+    html = html.replace(/(<header\b[\s\S]*?<div\b[^>]*class=["'][^"']*border-t border-white\/30[^"']*["'][^>]*>)[\s\S]*?(<\/div>\s*<\/header>)/i,
+      (_match, openTag, closeTags) => openTag + contactHtml + closeTags);
+
+    // Keep the softly shaded objective panel; show only the objective/summary saved by this user.
+    const objectiveSection = /<section\b[^>]*class=["'][^"']*bg-lightgreen\/30[^"']*["'][^>]*>[\s\S]*?<\/section>/i;
+    const objectiveMatch = html.match(objectiveSection);
+    if (objectiveMatch) {
+      if (objectiveText) {
+        const replacement = objectiveMatch[0].replace(/(<p\b[^>]*>)[\s\S]*?(<\/p>)/i,
+          (_paragraph, openTag, closeTag) => openTag + displayText(objectiveText).replace(/\n/g, '<br>') + closeTag);
+        html = html.replace(objectiveSection, replacement);
+      } else {
+        html = html.replace(objectiveSection, '');
+      }
+    }
+
+    // Replace section contents by heading while retaining the template's original section wrapper and heading.
+    const replaceGreenSection = (title: string, content: string) => {
+      const escapedTitle = title.replace(/[|\\{}()[\]^$+*?.-]/g, '\\  const security = `<meta http-equiv="Content-Security-Policy"');
+      const headingRegex = new RegExp('<h3\\b[^>]*>\\s*' + escapedTitle + '\\s*</h3>', 'i');
+      const headingMatch = headingRegex.exec(html);
+      if (!headingMatch || headingMatch.index === undefined) return;
+      const sectionStart = html.lastIndexOf('<section', headingMatch.index);
+      const headingEnd = headingMatch.index + headingMatch[0].length;
+      const sectionCloseStart = html.indexOf('</section>', headingEnd);
+      if (sectionStart < 0 || sectionCloseStart < 0) return;
+      const sectionEnd = sectionCloseStart + '</section>'.length;
+      const sectionOpenEnd = html.indexOf('>', sectionStart) + 1;
+      const sectionOpen = html.slice(sectionStart, sectionOpenEnd);
+      const sectionReplacement = content.trim()
+        ? sectionOpen + headingMatch[0] + content + '</section>'
+        : '';
+      html = html.slice(0, sectionStart) + sectionReplacement + html.slice(sectionEnd);
+    };
+
+    const experienceItems = (cv.work_experience || []).map(item => {
+      const role = displayText(item.jobTitle);
+      const employer = displayText([item.company, item.location].filter(Boolean).join(' | '));
+      const dates = displayText([item.startDate, item.isCurrent ? 'Present' : item.endDate].filter(Boolean).join(' – '));
+      const bullets = (item.bulletPoints || []).filter(point => String(point || '').trim())
+        .map(point => '<li>' + displayText(point) + '</li>').join('');
+      return '<div class="mb-6"><h4 class="font-bold text-lg text-textdark">' + role + '</h4>' +
+        '<div class="flex justify-between items-center text-sm font-semibold text-gray-500 mb-2"><span>' + employer +
+        '</span><span>' + dates + '</span></div>' +
+        (bullets ? '<ul class="text-sm text-gray-700 list-disc list-outside ml-4 space-y-1.5">' + bullets + '</ul>' : '') +
+        '</div>';
+    }).join('');
+    replaceGreenSection('Professional Experience', experienceItems);
+
+    const skillItems = (cv.skills || []).flatMap(group => (group.items || []).map(item => String(item || '').trim()))
+      .filter(Boolean);
+    const expertiseHtml = skillItems.map(skill =>
+      '<div class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3"><span class="inline-block w-2 h-2 rounded-full bg-forest"></span>' +
+      displayText(skill) + '</div>'
+    ).join('');
+    replaceGreenSection('Expertise', expertiseHtml);
+
+    const educationHtml = (cv.education || []).map(item =>
+      '<div class="mb-3"><h4 class="font-bold text-sm text-textdark">' +
+      displayText([item.degree, item.fieldOfStudy].filter(Boolean).join(' ')) +
+      '</h4><p class="text-sm text-gray-600">' + displayText(item.institution) + '</p>' +
+      '<p class="text-xs text-gray-500">' + displayText([item.startDate, item.endDate].filter(Boolean).join(' - ')) +
+      '</p></div>'
+    ).join('');
+    replaceGreenSection('Education', educationHtml);
+
+    const certificationsHtml = (cv.certifications || []).map(item =>
+      '<li><span class="font-bold">' + displayText(item.name) + '</span>' +
+      (item.issuingOrganization ? ' (' + displayText(item.issuingOrganization) + ')' : '') + '</li>'
+    ).join('');
+    replaceGreenSection('Certifications', certificationsHtml ? '<ul class="text-sm text-gray-700 space-y-2">' + certificationsHtml + '</ul>' : '');
+  }
+
   const security = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:;${needsTailwindRuntime ? " script-src 'unsafe-eval' https://cdn.tailwindcss.com;" : " script-src 'none';"} base-uri 'none'; form-action 'none'">`;
   const tailwindRuntime = needsTailwindRuntime ? '<script src="https://cdn.tailwindcss.com"></script>' : '';
   // The original uploaded "Test" CV uses custom Tailwind theme names (navy,
@@ -300,6 +395,19 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .font-serif { font-family: Georgia, serif !important; }
     .font-sans { font-family: Inter, Arial, sans-serif !important; }
     .page { margin: 0 auto !important; border: 0 !important; outline: 0 !important; }
+    ${isProfessionalGreen ? `
+    body { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
+    .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
+    .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
+    .bg-forest { background-color: #2d6a4f !important; }
+    .text-forest { color: #2d6a4f !important; }
+    .border-forest { border-color: #2d6a4f !important; }
+    .bg-lightgreen { background-color: #d8f3dc !important; }
+    [class~="bg-lightgreen/30"] { background-color: rgba(216, 243, 220, .3) !important; }
+    .text-lightgreen { color: #d8f3dc !important; }
+    .text-textdark { color: #1b4332 !important; }
+    [class~="border-white/30"] { border-color: rgba(255, 255, 255, .3) !important; }
+    ` : ''}
   </style>`;
   if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
   else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}${uploadedThemeCss}</head><body>${html}</body></html>`;
