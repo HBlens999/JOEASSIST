@@ -446,8 +446,10 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .font-medium { font-weight: 500 !important; }
     .font-semibold { font-weight: 600 !important; }
     .font-bold { font-weight: 700 !important; }
-    .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
-    .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
+    .font-serif { font-family: Georgia, serif !important; }
+    .font-sans { font-family: Inter, Arial, sans-serif !important; }
+    body:has(.bg-forest) .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
+    body:has(.bg-forest) .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
     .italic { font-style: italic !important; }
     .uppercase { text-transform: uppercase !important; }
     .text-center { text-align: center !important; }
