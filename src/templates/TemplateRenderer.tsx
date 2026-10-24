@@ -136,27 +136,45 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     for (let i = 0; i < headingMatches.length; i++) {
       const heading = headingMatches[i];
       const nextHeading = headingMatches[i + 1];
-      const end = nextHeading ? nextHeading.index : html.search(/<\/body\s*>/i);
-      if (end <= heading.end) continue;
-      let value: string | null = null;
-      if (/(objective|professional summary|career summary|profile|professional profile)/i.test(heading.title) && cv.summary?.trim()) {
-        value = '<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(cv.summary).replace(/\n/g, '<br>') + '</p>';
-      } else if (/(education|academic background|qualifications)/i.test(heading.title) && cv.education?.length) {
-        value = cv.education.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+      const sectionEnd = nextHeading ? nextHeading.index : html.search(/<\/body\s*>/i);
+      if (sectionEnd <= heading.index) continue;
+      let value = '';
+      let recognized = false;
+      const liveSection = (content: string) => html.slice(heading.index, heading.end) + content;
+      if (/(objective|professional summary|career summary|profile|professional profile)/i.test(heading.title)) {
+        recognized = true;
+        if (cv.summary?.trim()) value = liveSection('<p style="margin:0 0 8px;line-height:1.35;text-align:justify">' + escapeTemplateValue(cv.summary).replace(/\n/g, '<br>') + '</p>');
+      } else if (/(education|academic background|qualifications)/i.test(heading.title)) {
+        recognized = true;
+        if (cv.education?.length) value = liveSection(cv.education.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
           escapeTemplateValue([item.startDate, item.endDate].filter(Boolean).join(' - ')) + (item.startDate || item.endDate ? ' &nbsp; ' : '') +
           escapeTemplateValue([item.institution, item.degree, item.fieldOfStudy].filter(Boolean).join(' — ')) +
-          (item.gradeGpa ? '<br>' + escapeTemplateValue(item.gradeGpa) : '') + '</b></p>').join('');
-      } else if (/(work experience|work experiences|professional experience|employment history|career history|experience)/i.test(heading.title) && cv.work_experience?.length) {
-        value = cv.work_experience.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
+          (item.gradeGpa ? '<br>' + escapeTemplateValue(item.gradeGpa) : '') + '</b></p>').join(''));
+      } else if (/(work experience|work experiences|professional experience|employment history|career history|experience)/i.test(heading.title)) {
+        recognized = true;
+        if (cv.work_experience?.length) value = liveSection(cv.work_experience.map(item => '<p style="margin:0 0 8px;line-height:1.25"><b>' +
           escapeTemplateValue([item.jobTitle, item.company].filter(Boolean).join(' — ')) + '</b><br>' +
           escapeTemplateValue([item.startDate, item.isCurrent ? 'Present' : item.endDate].filter(Boolean).join(' - ')) +
           (item.location ? ' | ' + escapeTemplateValue(item.location) : '') +
           ((item.bulletPoints || []).length ? '<ul style="margin:4px 0 0 20px">' + item.bulletPoints.map(point => '<li>' + escapeTemplateValue(point) + '</li>').join('') + '</ul>' : '') +
-          '</p>').join('');
-      } else if (/skills|competenc/i.test(heading.title) && cv.skills?.length) {
-        value = '<ul style="margin:0 0 8px 20px">' + cv.skills.flatMap(group => group.items || []).map(skill => '<li>' + escapeTemplateValue(skill) + '</li>').join('') + '</ul>';
+          '</p>').join(''));
+      } else if (/skills|competenc/i.test(heading.title)) {
+        recognized = true;
+        if (cv.skills?.some(group => group.items?.length)) value = liveSection('<ul style="margin:0 0 8px 20px">' + cv.skills.flatMap(group => group.items || []).map(skill => '<li>' + escapeTemplateValue(skill) + '</li>').join('') + '</ul>');
+      } else if (/project/i.test(heading.title)) {
+        recognized = true;
+        if (cv.projects?.length) value = liveSection(projects);
+      } else if (/certification|licen[cs]e|accreditation/i.test(heading.title)) {
+        recognized = true;
+        if (cv.certifications?.length) value = liveSection(replacements.find(([key]) => key === 'certifications')?.[1] || '');
+      } else if (/language/i.test(heading.title)) {
+        recognized = true;
+        if (cv.languages?.length) value = liveSection(replacements.find(([key]) => key === 'languages')?.[1] || '');
       }
-      if (value !== null) sectionReplacements.push({ index: heading.end, end, value });
+      // This imported document has static sample-only sections such as Industrial Training
+      // and Personal Details. Remove unsupported headings and their content rather than
+      // presenting information the current user never entered.
+      if (recognized || !recognized) sectionReplacements.push({ index: heading.index, end: sectionEnd, value });
     }
     for (const replacement of sectionReplacements.reverse()) {
       html = html.slice(0, replacement.index) + replacement.value + html.slice(replacement.end);
@@ -166,16 +184,18 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // Normalize Word/LibreOffice HTML for an on-screen A4 page. Word's print margins
   // and fixed paragraph indents often overflow a browser iframe at screen dimensions.
   const layoutFix = `<style id="joeassist-uploaded-a4">
-    html { width: 100%; min-width: 0; box-sizing: border-box; }
+    html { width: 100%; min-width: 0; box-sizing: border-box; background: #e9eef5; }
     *, *::before, *::after { box-sizing: border-box; }
-    body { width: 100% !important; min-width: 0 !important; max-width: 100% !important; margin: 0 !important; padding: 10mm 12mm 12mm !important; overflow-wrap: anywhere; word-break: normal; }
+    body { width: 186mm !important; min-width: 0 !important; max-width: 186mm !important; margin: 0 auto !important; padding: 0 !important; overflow-wrap: anywhere; word-break: normal; background: transparent; }
+    body > * { max-width: 100%; }
     p, h1, h2, h3, h4, table, ul, ol, div { max-width: 100%; }
     p, h1, h2, h3, h4 { margin-right: 0 !important; }
     img, table { max-width: 100% !important; }
     table { table-layout: fixed; }
     td, th { overflow-wrap: anywhere; }
+    .joeassist-a4-sheet { width: 210mm !important; min-height: 297mm !important; height: 297mm !important; padding: 18mm 12mm 20mm !important; margin: 0 auto 8mm !important; overflow: hidden !important; background: #fff !important; box-shadow: 0 1px 5px #94a3b8; position: relative; }
+    .joeassist-a4-sheet::after { content: ''; position: absolute; bottom: 20mm; left: 12mm; right: 12mm; border-top: 1px solid #e5e7eb; pointer-events: none; }
     @page { size: A4 portrait; margin: 0; }
-    @media screen { body { min-height: 0 !important; } }
   </style>`;
   if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, layoutFix + '</head>');
   else html = layoutFix + html;
@@ -280,23 +300,52 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   }, [cv.template_id, cvSignature]);
   const measureDocument = () => {
     const doc = frameRef.current?.contentDocument;
-    if (!doc) return;
+    if (!doc?.body || doc.body.dataset.joeassistPaginated === 'true') {
+      if (doc?.body) setFrameReady(true);
+      return;
+    }
     const body = doc.body;
     const root = doc.documentElement;
-    const height = Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, root?.scrollHeight || 0, root?.offsetHeight || 0, 1122);
-    // Estimate page count from the normalized A4 content height; this remains an
-    // estimate for imported HTML with manual page breaks, not a PDF pagination engine.
-    setDocumentHeight(height);
-    setPageCount(Math.max(1, Math.ceil((height - 40) / 1122)));
+    const children = Array.from(body.children).filter((node) => !(node as HTMLElement).classList?.contains('joeassist-a4-sheet'));
+    if (children.length) {
+      body.dataset.joeassistPaginated = 'true';
+      const originalNodes = children.map((node) => node as HTMLElement);
+      const sheetHeight = 297 * 96 / 25.4;
+      const contentLimit = 297 * 96 / 25.4 - (38 * 96 / 25.4);
+      let sheet: HTMLDivElement | null = null;
+      let usedHeight = 0;
+      let count = 0;
+      const makeSheet = () => {
+        const page = doc.createElement('div');
+        page.className = 'joeassist-a4-sheet';
+        body.appendChild(page);
+        sheet = page;
+        usedHeight = 0;
+        count++;
+      };
+      for (const node of originalNodes) {
+        const height = Math.max(node.getBoundingClientRect().height, node.offsetHeight, 1);
+        if (!sheet || (usedHeight > 0 && usedHeight + height > contentLimit)) makeSheet();
+        sheet!.appendChild(node);
+        usedHeight += height;
+      }
+      setPageCount(Math.max(1, count));
+      // Each sheet is a true A4-sized surface; the iframe contains every page.
+      const height = Math.max(body.scrollHeight, root.scrollHeight, count * sheetHeight);
+      setDocumentHeight(height);
+    } else {
+      setDocumentHeight(Math.max(body.scrollHeight, root.scrollHeight, 1122));
+      setPageCount(1);
+    }
     setFrameReady(true);
   };
   if (loadError) return <div className="m-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{loadError}</div>;
   if (!html) return <div className="m-6 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">Loading uploaded HTML template…</div>;
   const frameHeight = Math.max(1122, documentHeight);
-  return <div id="cv-printable-area" className="mx-auto bg-white border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', minHeight: '297mm', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflowX: 'hidden', overflowWrap: 'anywhere', position: 'relative' }}>
+  return <div id="cv-printable-area" className="mx-auto border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflow: 'visible', overflowWrap: 'anywhere', position: 'relative' }}>
     {!frameReady && <div className="absolute z-10 m-3 rounded bg-white/95 px-3 py-2 text-xs text-gray-600 shadow">Loading uploaded CV styles…</div>}
     {frameReady && !printMode && <div aria-live="polite" className="sticky top-0 z-20 ml-auto w-fit rounded-bl-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow">{pageCount} {pageCount === 1 ? 'page' : 'pages'} · A4 preview</div>}
-    <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: 'white', overflow: 'hidden' }} />
+    <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: '#e9eef5', overflow: 'visible' }} />
   </div>;
 };
 
