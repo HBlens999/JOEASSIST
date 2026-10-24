@@ -324,8 +324,7 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
 
     // Replace section contents by heading while retaining the template's original section wrapper and heading.
     const replaceGreenSection = (title: string, content: string) => {
-      const escapedTitle = title.replace(/[|\\{}()[\]^$+*?.-]/g, '\\  const security = `<meta http-equiv="Content-Security-Policy"');
-      const headingRegex = new RegExp('<h3\\b[^>]*>\\s*' + escapedTitle + '\\s*</h3>', 'i');
+      const headingRegex = new RegExp('<h3\\b[^>]*>\\s*' + title.replace(/ /g, '\\s+') + '\\s*</h3>', 'i');
       const headingMatch = headingRegex.exec(html);
       if (!headingMatch || headingMatch.index === undefined) return;
       const sectionStart = html.lastIndexOf('<section', headingMatch.index);
