@@ -384,19 +384,12 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   // The original uploaded "Test" CV uses custom Tailwind theme names (navy,
   // gold and lightgray). Its inline tailwind.config script is intentionally
   // stripped for safety, so provide those theme utilities as static CSS instead.
-  const uploadedThemeCss = `<style>
+  const uploadedThemeCss = \`<style>
     html, body { width: 210mm !important; max-width: 210mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; box-sizing: border-box !important; }
     body { font-family: Inter, Arial, sans-serif; overflow-wrap: anywhere; word-wrap: break-word; }
-    .bg-navy { background-color: #1B263B !important; }
-    .text-navy { color: #1B263B !important; }
-    .text-gold { color: #C5A880 !important; }
-    .border-gold { border-color: #C5A880 !important; }
-    .bg-lightgray { background-color: #F3F4F6 !important; }
-    .font-serif { font-family: Georgia, serif !important; }
-    .font-sans { font-family: Inter, Arial, sans-serif !important; }
+    *, *::before, *::after { box-sizing: border-box; }
     .page { margin: 0 auto !important; border: 0 !important; outline: 0 !important; }
-    /* Static Tailwind-compatible utilities used by the uploaded HTML templates.
-       Keeping these styles local avoids executing a third-party CDN script in the preview iframe. */
+    /* Static Tailwind-compatible utilities for the uploaded CV designs. */
     .flex { display: flex !important; }
     .flex-1 { flex: 1 1 0% !important; }
     .flex-col { flex-direction: column !important; }
@@ -432,9 +425,9 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .mt-6 { margin-top: 1.5rem !important; }
     .ml-4 { margin-left: 1rem !important; }
     .mr-3 { margin-right: .75rem !important; }
-    .border-r { border-right-width: 1px !important; border-right-style: solid !important; }
-    .border-t { border-top-width: 1px !important; border-top-style: solid !important; }
-    .border-b-2 { border-bottom-width: 2px !important; border-bottom-style: solid !important; }
+    .border-r { border-right: 1px solid !important; }
+    .border-t { border-top: 1px solid !important; }
+    .border-b-2 { border-bottom: 2px solid !important; }
     .border-4 { border-width: 4px !important; border-style: solid !important; }
     .border-gray-200 { border-color: #e5e7eb !important; }
     .rounded-md { border-radius: .375rem !important; }
@@ -453,6 +446,8 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .font-medium { font-weight: 500 !important; }
     .font-semibold { font-weight: 600 !important; }
     .font-bold { font-weight: 700 !important; }
+    .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
+    .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
     .italic { font-style: italic !important; }
     .uppercase { text-transform: uppercase !important; }
     .text-center { text-align: center !important; }
@@ -467,17 +462,15 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .leading-relaxed { line-height: 1.625 !important; }
     .tracking-wider { letter-spacing: .05em !important; }
     .tracking-widest { letter-spacing: .1em !important; }
+    .bg-white { background-color: #fff !important; }
+    .text-white { color: #fff !important; }
     .bg-gray-200 { background-color: #e5e7eb !important; }
     .bg-lightgray { background-color: #f3f4f6 !important; }
     .text-gray-500 { color: #6b7280 !important; }
     .text-gray-600 { color: #4b5563 !important; }
     .text-gray-700 { color: #374151 !important; }
     .text-gray-800 { color: #1f2937 !important; }
-    \` : ''}
-    \${isProfessionalGreen ? \`
-    body { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
-    .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
-    .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
+    /* Palette from Professional Green and Pro 1. */
     .bg-forest { background-color: #2d6a4f !important; }
     .text-forest { color: #2d6a4f !important; }
     .border-forest { border-color: #2d6a4f !important; }
@@ -486,9 +479,11 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .text-lightgreen { color: #d8f3dc !important; }
     .text-textdark { color: #1b4332 !important; }
     [class~="border-white/30"] { border-color: rgba(255, 255, 255, .3) !important; }
-    ` : ''}
-  </style>`;
-  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
+    .bg-navy { background-color: #1B263B !important; }
+    .text-navy { color: #1B263B !important; }
+    .text-gold { color: #C5A880 !important; }
+    .border-gold { border-color: #C5A880 !important; }
+  </style>\`;  if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${security}${tailwindRuntime}${uploadedThemeCss}`);
   else html = `<!doctype html><html><head>${security}<meta charset="utf-8">${tailwindRuntime}${uploadedThemeCss}</head><body>${html}</body></html>`;
   return html;
 }
