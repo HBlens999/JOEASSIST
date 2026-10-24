@@ -34,7 +34,8 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
   ).join('');
   // Only restore the official Tailwind Play CDN when the uploaded document explicitly depends on it.
   // All uploaded scripts are still stripped below; the trusted runtime is injected after sanitization.
-  const needsTailwindRuntime = /<script\b[^>]*\bsrc\s*=\s*["']https:\/\/cdn\.tailwindcss\.com(?:\/[^"']*)?["'][^>]*>\s*<\/script\s*>/i.test(rawHtml);
+  // Uploaded templates are rendered with local utility CSS below. Never execute the Tailwind CDN at runtime.
+  const needsTailwindRuntime = false;
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
     .replace(/<script\b[^>]*\/?\s*>/gi, '')
@@ -394,7 +395,86 @@ function prepareUploadedHtml(rawHtml: string, cv: CVDocument): string {
     .font-serif { font-family: Georgia, serif !important; }
     .font-sans { font-family: Inter, Arial, sans-serif !important; }
     .page { margin: 0 auto !important; border: 0 !important; outline: 0 !important; }
-    ${isProfessionalGreen ? `
+    /* Static Tailwind-compatible utilities used by the uploaded HTML templates.
+       Keeping these styles local avoids executing a third-party CDN script in the preview iframe. */
+    .flex { display: flex !important; }
+    .flex-1 { flex: 1 1 0% !important; }
+    .flex-col { flex-direction: column !important; }
+    .items-center { align-items: center !important; }
+    .items-baseline { align-items: baseline !important; }
+    .justify-between { justify-content: space-between !important; }
+    .justify-center { justify-content: center !important; }
+    .gap-4 { gap: 1rem !important; }
+    .gap-8 { gap: 2rem !important; }
+    .w-full { width: 100% !important; }
+    .w-2\/3 { width: 66.666667% !important; }
+    .w-1\/3 { width: 33.333333% !important; }
+    .w-32 { width: 8rem !important; }
+    .w-5 { width: 1.25rem !important; }
+    .h-full { height: 100% !important; }
+    .h-32 { height: 8rem !important; }
+    .h-5 { height: 1.25rem !important; }
+    .h-1\.5 { height: .375rem !important; }
+    .p-6 { padding: 1.5rem !important; }
+    .p-8 { padding: 2rem !important; }
+    .p-10 { padding: 2.5rem !important; }
+    .pb-1 { padding-bottom: .25rem !important; }
+    .pb-2 { padding-bottom: .5rem !important; }
+    .pt-4 { padding-top: 1rem !important; }
+    .pr-8 { padding-right: 2rem !important; }
+    .mb-1 { margin-bottom: .25rem !important; }
+    .mb-2 { margin-bottom: .5rem !important; }
+    .mb-3 { margin-bottom: .75rem !important; }
+    .mb-4 { margin-bottom: 1rem !important; }
+    .mb-5 { margin-bottom: 1.25rem !important; }
+    .mb-6 { margin-bottom: 1.5rem !important; }
+    .mb-8 { margin-bottom: 2rem !important; }
+    .mt-6 { margin-top: 1.5rem !important; }
+    .ml-4 { margin-left: 1rem !important; }
+    .mr-3 { margin-right: .75rem !important; }
+    .border-r { border-right-width: 1px !important; border-right-style: solid !important; }
+    .border-t { border-top-width: 1px !important; border-top-style: solid !important; }
+    .border-b-2 { border-bottom-width: 2px !important; border-bottom-style: solid !important; }
+    .border-4 { border-width: 4px !important; border-style: solid !important; }
+    .border-gray-200 { border-color: #e5e7eb !important; }
+    .rounded-md { border-radius: .375rem !important; }
+    .rounded-full { border-radius: 9999px !important; }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1) !important; }
+    .overflow-hidden { overflow: hidden !important; }
+    .object-cover { object-fit: cover !important; }
+    .list-disc { list-style-type: disc !important; }
+    .list-inside { list-style-position: inside !important; }
+    .list-outside { list-style-position: outside !important; }
+    .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: .25rem !important; }
+    .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: .5rem !important; }
+    .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: .75rem !important; }
+    .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: .375rem !important; }
+    .font-light { font-weight: 300 !important; }
+    .font-medium { font-weight: 500 !important; }
+    .font-semibold { font-weight: 600 !important; }
+    .font-bold { font-weight: 700 !important; }
+    .italic { font-style: italic !important; }
+    .uppercase { text-transform: uppercase !important; }
+    .text-center { text-align: center !important; }
+    .text-justify { text-align: justify !important; }
+    .text-xs { font-size: .75rem !important; line-height: 1rem !important; }
+    .text-sm { font-size: .875rem !important; line-height: 1.25rem !important; }
+    .text-lg { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+    .text-xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+    .text-2xl { font-size: 1.5rem !important; line-height: 2rem !important; }
+    .text-4xl { font-size: 2.25rem !important; line-height: 2.5rem !important; }
+    .text-5xl { font-size: 3rem !important; line-height: 1 !important; }
+    .leading-relaxed { line-height: 1.625 !important; }
+    .tracking-wider { letter-spacing: .05em !important; }
+    .tracking-widest { letter-spacing: .1em !important; }
+    .bg-gray-200 { background-color: #e5e7eb !important; }
+    .bg-lightgray { background-color: #f3f4f6 !important; }
+    .text-gray-500 { color: #6b7280 !important; }
+    .text-gray-600 { color: #4b5563 !important; }
+    .text-gray-700 { color: #374151 !important; }
+    .text-gray-800 { color: #1f2937 !important; }
+    \` : ''}
+    \${isProfessionalGreen ? \`
     body { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
     .font-serif { font-family: 'Merriweather', Georgia, serif !important; }
     .font-sans { font-family: 'Source Sans Pro', Arial, sans-serif !important; }
@@ -484,7 +564,7 @@ const UploadedHtmlTemplateRenderer: React.FC<{ cv: CVDocument; scale: number; pr
   return <div id="cv-printable-area" className="mx-auto border-0 shadow-none" style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box', border: 0, outline: 'none', boxShadow: 'none', transform: printMode ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflow: 'visible', overflowWrap: 'anywhere', position: 'relative' }}>
     {!frameReady && <div className="absolute z-10 m-3 rounded bg-white/95 px-3 py-2 text-xs text-gray-600 shadow">Loading uploaded CV styles…</div>}
     {frameReady && !printMode && <div aria-live="polite" className="sticky top-0 z-20 ml-auto w-fit rounded-bl-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow">{pageCount} {pageCount === 1 ? 'page' : 'pages'} · A4 preview</div>}
-    <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-scripts allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: '#e9eef5', overflow: 'visible' }} />
+    <iframe ref={frameRef} title="Uploaded CV template preview" onLoad={() => window.requestAnimationFrame(measureDocument)} sandbox="allow-same-origin" srcDoc={html} style={{ width: '210mm', height: `${frameHeight}px`, minHeight: '297mm', border: 0, outline: 'none', display: 'block', background: '#e9eef5', overflow: 'visible' }} />
   </div>;
 };
 
